@@ -20,7 +20,7 @@ class ManageUserController extends Controller
 
     public function listAllUsers()
     {
-
+        // List to all users.
     }
 
     public function createUser(Request $request)
