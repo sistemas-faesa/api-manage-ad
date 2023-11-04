@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\System\ManageUserController;
+use App\Http\Controllers\System\ActiveDirectoryController;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -16,14 +16,14 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['access.security'])->prefix('v1')->group(function(){
+Route::middleware(['access.security', 'cors'])->prefix('v1')->group(function(){
     Route::post('ad-manage/auth', [LoginRequest::class, 'authenticate']);
-    Route::get('ad-manage/list-users', [ManageUserController::class, 'listAllUsers']);
-    Route::post('ad-manage/create-user', [ManageUserController::class, 'createUser']);
+    Route::post('ad-manage/create-user', [ActiveDirectoryController::class, 'validateSaveUser']);
+    Route::get('ad-manage/list-users', [ActiveDirectoryController::class, 'listAllUsers']);
+    Route::patch('ad-manage/change-password/{token}', [ActiveDirectoryController::class, 'changePassword']);
 });
-
-Route::prefix('v1')->middleware('jwt.auth')->group(function(){
-    Route::get('ad-manage/me', [LoginRequest::class, "me"]);
-    Route::get('ad-manage/refresh', [LoginRequest::class, "refresh"]);
-    Route::get('ad-manage/logout', [LoginRequest::class, "logout"]);
-});
+// Route::prefix('v1')->middleware('jwt.auth')->group(function(){
+//     Route::get('ad-manage/me', [LoginRequest::class, "me"]);
+//     Route::get('ad-manage/refresh', [LoginRequest::class, "refresh"]);
+//     Route::get('ad-manage/logout', [LoginRequest::class, "logout"]);
+// });

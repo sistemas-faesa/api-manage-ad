@@ -43,7 +43,7 @@ class LoginRequest extends FormRequest
             'password' => $this->password,
         ];
 
-        if (!$token = auth('api')->attempt($credentials)) {
+        if (!auth('api')->attempt($credentials)) {
             RateLimiter::hit($this->throttleKey());
             return $this->errorResponse(['fail' => 'unauthenticated']);
         }else{
