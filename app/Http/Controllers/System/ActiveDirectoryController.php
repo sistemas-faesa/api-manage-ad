@@ -124,7 +124,6 @@ class ActiveDirectoryController extends Controller
 
     $user->samaccountname = $this->samaccountname;
 
-
     try {
       // $user->userAccountControl = 512;
 
