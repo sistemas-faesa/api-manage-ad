@@ -95,6 +95,7 @@ class ActiveDirectoryController extends Controller
 
   private function checkIfUserExists($type){
     $check = [];
+
     switch($type){
       case 'account':
         $check = $this->connection->query()->where('samaccountname', '=', $this->samaccountname)->get();
@@ -111,7 +112,6 @@ class ActiveDirectoryController extends Controller
   }
 
   private function saveUser(Request $request){
-
     $user = (new User)->inside(self::CN);
     // $user = new UserLdap();
     $user->cn = $request->cn;
