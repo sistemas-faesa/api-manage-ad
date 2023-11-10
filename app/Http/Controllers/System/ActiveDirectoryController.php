@@ -11,6 +11,8 @@ use LdapRecord\LdapRecordException;
 use App\Http\Controllers\Controller;
 use App\Mail\ResetPassword;
 use Illuminate\Support\Facades\Mail;
+use LdapRecord\Exceptions\ConstraintViolationException;
+use LdapRecord\Exceptions\InsufficientAccessException;
 use LdapRecord\Models\ActiveDirectory\User;
 
 
@@ -73,6 +75,10 @@ class ActiveDirectoryController extends Controller
   }
 
   public function createSamAccountName()
+  /*
+    Regra de criação de usuário:
+    primeiro e próximo nome (verificando se existe, se sim, ir para o próximo até que não exista.)
+  */
   {
     $name = strtolower(str_replace(array('', 'à','á','â','ã','ä', 'ç', 'è','é','ê','ë', 'ì','í','î','ï',
                                         'ñ', 'ò','ó','ô','õ','ö', 'ù','ú','û','ü', 'ý','ÿ', 'À','Á','Â','Ã','Ä',
@@ -113,9 +119,8 @@ class ActiveDirectoryController extends Controller
 
   private function saveUser(Request $request){
     $user = (new User)->inside(self::CN);
-    // $user = new UserLdap();
     $user->cn = $request->cn;
-    // $user->unicodePwd  = '123456';
+    $user->unicodePwd = 'Faesa@2023';
     $user->sn = $request->cn;
     $user->company = 'faesa';
     // $user->userPrincipalName  = 'mail@teste2.br';
@@ -124,35 +129,46 @@ class ActiveDirectoryController extends Controller
 
     $user->samaccountname = $this->samaccountname;
 
-    try {
-      // $user->userAccountControl = 512;
+    $modification = $user->getModifications()[0];
 
+    try {
       $user->save();
 
       $user->refresh();
 
       return $this->successResponse($user);
 
-    } catch (LdapRecordException $e) {
-      Log::warning("ERRO AO CRIAR O USUÁRIO: $e");
+    }catch (LdapRecordException $ex) {
+      Log::warning("ERRO AO CRIAR O USUÁRIO: $ex");
+      return $ex;
 
-      return $e;
+    }catch(InsufficientAccessException $ex){
+        Log::warning("ERRO AO CRIAR O USUÁRIO: $ex");
+
+    }catch(ConstraintViolationException  $ex){
+        $error = $ex->getDetailedError();
+        Log::warning("ERRO AO CRIAR O USUÁRIO: CODE:".$error->getErrorCode()." DESCR.: ". $error->getErrorMessage().", ". $error->getDiagnosticMessage());
     }
   }
 
 
-  public function changePassword($idUser){
+  public function changePassword($mail_user){
     $content = [
         'body' => 'Test',
-        'token' => 2423
+        'token' =>random_bytes(4)
     ];
 
+    // $user = $this->connection->query()->where('cn', '=', 'Teste Teste5')->get();
+
+    $user = User::find('cn=Teste Teste5, OU=Desenvolvimento,DC=faesa,DC=br');
+
+    // Mail::to(['junior.devstack@gmail.com'])->send(new ResetPassword($content));
+
+    $user->unicodepwd  = 'Faesa@teste2023';
+    $user->save();
     Mail::to(['junior.devstack@gmail.com'])->send(new ResetPassword($content));
 
     return $this->successMessage('e-mail enviado com sucesso!');
-    // $samaccountname = UserLdap::where('samaccountname', '=', 'teste.teste4')->first();
-    // $samaccountname->unicodepwd  = '12345';
-    // $samaccountname->save();
   }
 
   public function listAllUsers()
