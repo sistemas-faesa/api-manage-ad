@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Log;
 use LdapRecord\LdapRecordException;
 use App\Http\Controllers\Controller;
 use App\Mail\ResetPassword;
+use Exception;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Mail;
 use LdapRecord\Exceptions\ConstraintViolationException;
 use LdapRecord\Exceptions\InsufficientAccessException;
@@ -75,27 +77,40 @@ class ActiveDirectoryController extends Controller
   }
 
   public function createSamAccountName()
-  /*
-    Regra de criação de usuário:
-    primeiro e próximo nome (verificando se existe, se sim, ir para o próximo até que não exista.)
-  */
   {
-    $name = strtolower(str_replace(array('', 'à','á','â','ã','ä', 'ç', 'è','é','ê','ë', 'ì','í','î','ï',
-                                        'ñ', 'ò','ó','ô','õ','ö', 'ù','ú','û','ü', 'ý','ÿ', 'À','Á','Â','Ã','Ä',
-                                        'Ç', 'È','É','Ê','Ë', 'Ì','Í','Î','Ï', 'Ñ', 'Ò','Ó','Ô','Õ','Ö', 'Ù','Ú','Û','Ü', 'Ý'),
-                                        array('_', 'a','a','a','a','a', 'c', 'e','e','e','e', 'i','i','i','i', 'n', 'o','o','o',
-                                        'o','o', 'u','u','u','u', 'y','y', 'A','A','A','A','A', 'C', 'E','E','E','E', 'I','I','I',
-                                        'I', 'N', 'O','O','O','O','O', 'U','U','U','U', 'Y'),
-                                        $this->cn));
+    /*
+        Regra de criação de usuário:
+        primeiro e próximo nome (verificando se existe, se sim, ir para o próximo até que não exista.)
+    */
+    $name = strtolower(
+							str_replace(
+								array('', 'à','á','â','ã','ä', 'ç', 'è','é','ê','ë', 'ì','í','î','ï',
+									'ñ', 'ò','ó','ô','õ','ö', 'ù','ú','û','ü', 'ý','ÿ', 'À','Á','Â','Ã','Ä',
+									'Ç', 'È','É','Ê','Ë', 'Ì','Í','Î','Ï', 'Ñ', 'Ò','Ó','Ô','Õ','Ö', 'Ù','Ú','Û','Ü', 'Ý'),
+									array('_', 'a','a','a','a','a', 'c', 'e','e','e','e', 'i','i','i','i', 'n', 'o','o','o',
+									'o','o', 'u','u','u','u', 'y','y', 'A','A','A','A','A', 'C', 'E','E','E','E', 'I','I','I',
+									'I', 'N', 'O','O','O','O','O', 'U','U','U','U', 'Y'),
+									$this->cn));
     $names = explode(" ", $name);
+
     $firstName = strval($names[0]);
-    $secondName = strval($names[count($names) - 1]);
 
-    $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount == 0 ? '': $this->complementNumericSmaAccount);
+    foreach($names as $key => $name){
+        if(strlen($name) < 3 || $key == 0){
+            continue;
+        }
 
-    if($this->checkIfUserExists('account')){
-      $this->complementNumericSmaAccount = random_int(1,99);
-      $this->createSamAccountName();
+        $secondName = strval($names[$key]);
+        $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount == 0 ? '': $this->complementNumericSmaAccount);
+
+        if ($this->checkIfUserExists('account')){
+            if(count($names) - 1 == $key){
+                $this->complementNumericSmaAccount = random_int(1,99);
+                $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount);
+            }
+            continue;
+        }
+        break;
     }
   }
 
@@ -123,52 +138,55 @@ class ActiveDirectoryController extends Controller
     $user->unicodePwd = 'Faesa@2023';
     $user->sn = $request->cn;
     $user->company = 'faesa';
-    // $user->userPrincipalName  = 'mail@teste2.br';
     $user->mail = $request->mail;
-    // $user->unicodepwd = '12345';
-
     $user->samaccountname = $this->samaccountname;
-
-    $modification = $user->getModifications()[0];
+    $user->userAccountControl = 512;
 
     try {
       $user->save();
-
       $user->refresh();
 
+      $date = Date('dd/mm/yyyy');
+      Log::info("USUÁRIO CRIADO EM $date, $user");
       return $this->successResponse($user);
 
-    }catch (LdapRecordException $ex) {
-      Log::warning("ERRO AO CRIAR O USUÁRIO: $ex");
-      return $ex;
-
-    }catch(InsufficientAccessException $ex){
-        Log::warning("ERRO AO CRIAR O USUÁRIO: $ex");
-
-    }catch(ConstraintViolationException  $ex){
-        $error = $ex->getDetailedError();
-        Log::warning("ERRO AO CRIAR O USUÁRIO: CODE:".$error->getErrorCode()." DESCR.: ". $error->getErrorMessage().", ". $error->getDiagnosticMessage());
+    }catch(Exception  $ex){
+        Log::warning("ERRO AO CRIAR O USUÁRIO: CODE: $ex");
     }
   }
 
-
   public function changePassword($mail_user){
-    $content = [
-        'body' => 'Test',
-        'token' =>random_bytes(4)
-    ];
+    try {
+        $content = [
+            'body' => 'Test',
+            'token' =>random_bytes(4)
+        ];
 
-    // $user = $this->connection->query()->where('cn', '=', 'Teste Teste5')->get();
+        $user = User::find('cn=Teste Teste da Silva Junior, OU=Desenvolvimento,DC=faesa,DC=br');
 
-    $user = User::find('cn=Teste Teste5, OU=Desenvolvimento,DC=faesa,DC=br');
+        $user->unicodepwd  = 'Faesa@202020';
 
-    // Mail::to(['junior.devstack@gmail.com'])->send(new ResetPassword($content));
+        $user->save();
+        $user->refresh();
 
-    $user->unicodepwd  = 'Faesa@teste2023';
-    $user->save();
-    Mail::to(['junior.devstack@gmail.com'])->send(new ResetPassword($content));
+        Mail::to(['junior.devstack@gmail.com'])->send(new ResetPassword($content));
 
-    return $this->successMessage('e-mail enviado com sucesso!');
+        return $this->successMessage('e-mail enviado com sucesso!');
+
+    } catch (InsufficientAccessException $ex) {
+        Log::warning("ERRO ALTERAR SENHA: $ex");
+    } catch (ConstraintViolationException $ex) {
+        Log::warning("ERRO ALTERAR SENHA: $ex");
+    } catch (\LdapRecord\LdapRecordException $ex) {
+        $error = $ex->getDetailedError();
+
+        echo $error->getErrorCode();
+        echo $error->getErrorMessage();
+        echo $error->getDiagnosticMessage();
+
+        Log::warning("ERRO ALTERAR SENHA: $error");
+    }
+
   }
 
   public function listAllUsers()
