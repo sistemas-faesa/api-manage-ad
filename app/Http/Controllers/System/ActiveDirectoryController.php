@@ -185,7 +185,6 @@ class ActiveDirectoryController extends Controller
     $user->cn = $request->cn;
     $user->unicodePwd = 'Faesa@2023';
     $user->sn = $request->cn;
-    $user->company = 'faesa';
     $user->mail = $request->mail;
     $user->samaccountname = $this->samaccountname;
     $user->userAccountControl = 512;
