@@ -2,20 +2,21 @@
 
 namespace App\Http\Controllers\System;
 
+use Exception;
 use App\Ldap\UserLdap;
 use LdapRecord\Container;
+use App\Mail\ResetPassword;
 use App\Traits\ApiResponser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use LdapRecord\LdapRecordException;
 use App\Http\Controllers\Controller;
-use App\Mail\ResetPassword;
-use Exception;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Mail;
-use LdapRecord\Exceptions\ConstraintViolationException;
-use LdapRecord\Exceptions\InsufficientAccessException;
 use LdapRecord\Models\ActiveDirectory\User;
+use LdapRecord\Models\ActiveDirectory\Group;
+use LdapRecord\Exceptions\InsufficientAccessException;
+use LdapRecord\Exceptions\ConstraintViolationException;
 
 
 class ActiveDirectoryController extends Controller
@@ -24,8 +25,6 @@ class ActiveDirectoryController extends Controller
 
   private $connection;
   private $samaccountname;
-  private $cn;
-  private $mail;
   private $complementNumericSmaAccount = 0;
   CONST CN = 'OU=Desenvolvimento,DC=faesa,DC=br';
 
@@ -39,49 +38,99 @@ class ActiveDirectoryController extends Controller
       return $this->errorResponse($this->validarCampos($request), 400);
     }
 
-    $this->cn = $request->cn;
-    $this->mail = $request->mail;
-
-    if($this->checkIfUserExists('name')){
+    if($this->checkIfUserExists('name', $request)){
       return $this->errorResponse("Já existe um usuário criado com este nome");
     }
 
-    if($this->checkIfUserExists('email')){
+    if($this->checkIfUserExists('email', $request)){
       return $this->errorResponse("Este e-mail já se encontra cadastrado.");
     }
 
-    $this->createSamAccountName();
+    $this->createSamAccountName($request);
 
     return $this->saveUser($request);
   }
 
   public function validarCampos(Request $request){
     $msgError = "";
+    // $patternCpf = '/^\d{3}\.\d{3}\.\d{3}\-\d{2}$/';
+    $patternCpf = '/^\d{11}/';
+    // $patternPhone = '/^(?:(?:\+|00)?(55)\s?)?(?:(?:\(?[1-9][0-9]\)?)?\s?)?(?:((?:9\d|[2-9])\d{3})-?(\d{4}))$/';
+    $patternPhone = '/^\d{4}/';
 
-    if(!$request->has('cn')){
-      $msgError = "Campo cn é obrigatório";
-    }elseif(!$request->cn){
-      $msgError = "Campo cn é obrigatório o preenchimento";
+    if(!$request->givenname){
+      return $msgError = "Campo givenname é obrigatório o preenchimento";
+    }
+
+    if(!$request->displayname){
+      return $msgError = "Campo displayname é obrigatório o preenchimento";
+    }
+
+    if(!$request->cn){
+      return $msgError = "Campo cn é obrigatório o preenchimento";
     }
 
     if(!strstr($request->cn, " ")){
-      $msgError = "Nome com Formato incorreto!";
+      return $msgError = "Nome com Formato incorreto!";
     }
 
+    if(!$request->sn){
+      return $msgError = "Campo sn é obrigatório o preenchimento";
+    }
+
+    if(!$request->description){
+      return $msgError = "Campo description é obrigatório o preenchimento";
+    }elseif(!preg_match($patternCpf, $request->description)){
+      return $msgError = "Formato description está incorreto";
+    }
+
+    if(!$request->physicaldeliveryofficename){
+      return $msgError = "Campo physicaldeliveryofficename é obrigatório o preenchimento";
+    }elseif(!preg_match($patternPhone, $request->physicaldeliveryofficename)){
+        return $msgError = "Formato physicaldeliveryofficename está incorreto";
+      }
+
     if(!filter_var($request->mail, FILTER_VALIDATE_EMAIL)){
-      $msgError = "E-mail inválido";
+      return $msgError = "E-mail inválido";
+    }
+
+    if(!$request->scriptpatch){
+      return $msgError = "Campo scriptpatch é obrigatório o preenchimento";
+    }
+
+    if(!$request->maneger){
+      return $msgError = "Campo maneger é obrigatório o preenchimento";
+    }
+
+    if(!$request->pager){
+      return $msgError = "Campo pager é obrigatório o preenchimento";
+    }elseif(!filter_var($request->pager, FILTER_VALIDATE_EMAIL)){
+      return $msgError = "pager inválido";
+    }
+
+    if(!$request->title){
+      return $msgError = "Campo title é obrigatório o preenchimento";
+    }
+
+    if(!$request->departament){
+      return $msgError = "Campo departament é obrigatório o preenchimento";
+    }
+
+    if(!$request->company){
+      return $msgError = "Campo company é obrigatório o preenchimento";
+    }
+
+    if(!$request->ipphone){
+      return $msgError = "Campo ipphone é obrigatório o preenchimento";
+    }elseif(!preg_match($patternPhone, $request->ipphone)){
+      return $msgError = "Formato ipphone está incorreto";
     }
 
     return $msgError;
-
   }
 
-  public function createSamAccountName()
+  public function createSamAccountName(Request $request)
   {
-    /*
-        Regra de criação de usuário:
-        primeiro e próximo nome (verificando se existe, se sim, ir para o próximo até que não exista.)
-    */
     $name = strtolower(
 							str_replace(
 								array('', 'à','á','â','ã','ä', 'ç', 'è','é','ê','ë', 'ì','í','î','ï',
@@ -90,7 +139,7 @@ class ActiveDirectoryController extends Controller
 									array('_', 'a','a','a','a','a', 'c', 'e','e','e','e', 'i','i','i','i', 'n', 'o','o','o',
 									'o','o', 'u','u','u','u', 'y','y', 'A','A','A','A','A', 'C', 'E','E','E','E', 'I','I','I',
 									'I', 'N', 'O','O','O','O','O', 'U','U','U','U', 'Y'),
-									$this->cn));
+									$request->cn));
     $names = explode(" ", $name);
 
     $firstName = strval($names[0]);
@@ -103,18 +152,18 @@ class ActiveDirectoryController extends Controller
         $secondName = strval($names[$key]);
         $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount == 0 ? '': $this->complementNumericSmaAccount);
 
-        if ($this->checkIfUserExists('account')){
-            if(count($names) - 1 == $key){
-                $this->complementNumericSmaAccount = random_int(1,99);
-                $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount);
-            }
-            continue;
+        if ($this->checkIfUserExists('account', $request)){
+          if(count($names) - 1 == $key){
+            $this->complementNumericSmaAccount = random_int(1,99);
+            $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount);
+          }
+          continue;
         }
         break;
     }
   }
 
-  private function checkIfUserExists($type){
+  private function checkIfUserExists(string $type, Request $request = null){
     $check = [];
 
     switch($type){
@@ -122,13 +171,12 @@ class ActiveDirectoryController extends Controller
         $check = $this->connection->query()->where('samaccountname', '=', $this->samaccountname)->get();
       break;
       case 'name':
-        $check = $this->connection->query()->where('cn', '=', $this->cn)->get();
+        $check = $this->connection->query()->where('cn', '=', $request->cn)->get();
       break;
       case 'email':
-        $check = $this->connection->query()->where('mail', '=', $this->mail)->get();
+        $check = $this->connection->query()->where('mail', '=', $request->mail)->get();
       break;
     }
-
     return $check;
   }
 
@@ -141,6 +189,30 @@ class ActiveDirectoryController extends Controller
     $user->mail = $request->mail;
     $user->samaccountname = $this->samaccountname;
     $user->userAccountControl = 512;
+    $user->givenname = $request->givenname;
+    $user->displayname = $request->displayname;
+    $user->cn = $request->cn;
+    $user->sn = $request->sn;
+    $user->displayname = $request->displayname;
+    $user->description = $request->description;
+    $user->physicaldeliveryofficename = $request->physicaldeliveryofficename;
+    $user->mail = $request->mail;
+    $user->samaccountname = $this->samaccountname;
+    $user->userAccountControl = 512;
+    // $user->scriptpatch = $request->scriptpatch;
+    $user->ipphone = $request->ipphone;
+    $user->pager = $request->pager;
+    $user->title = $request->title;
+    // $user->departament = $request->departament;
+    $user->company = $request->company;
+    // $user->maneger = $request->maneger;
+    // $user->memberof = ["CN=Wireless Alunos,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br"];
+    $user->proxyaddresses = $request->proxyaddresses;
+    $user->unicodePwd = 'Faesa@2023';
+
+    $group = Group::find('CN=Desenvolvimento,DC=faesa,DC=br');
+
+    // $group = Group::find('cn=Accounting,dc=local,dc=com');
 
     try {
       $user->save();
