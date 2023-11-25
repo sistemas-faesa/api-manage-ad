@@ -157,21 +157,21 @@ class ActiveDirectoryController extends Controller
     $firstName = strval($names[0]);
 
     foreach($names as $key => $name){
-			if(strlen($name) < 3 || $key == 0){
-					continue;
-			}
+      if(strlen($name) < 3 || $key == 0){
+        continue;
+      }
 
-			$secondName = strval($names[$key]);
-			$this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount == 0 ? '': $this->complementNumericSmaAccount);
+      $secondName = strval($names[$key]);
+      $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount == 0 ? '': $this->complementNumericSmaAccount);
 
-			if ($this->checkIfUserExists('account', $request)){
-				if(count($names) - 1 == $key){
-					$this->complementNumericSmaAccount = random_int(1,99);
-					$this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount);
-				}
-				continue;
-			}
-			break;
+      if ($this->checkIfUserExists('account', $request)){
+        if(count($names) - 1 == $key){
+          $this->complementNumericSmaAccount = random_int(1,99);
+          $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount);
+        }
+        continue;
+      }
+      break;
     }
   }
 
@@ -238,6 +238,8 @@ class ActiveDirectoryController extends Controller
       $user->save();
       $user->refresh();
 
+      $user->manager()->attach($user);
+
       $date = Date('dd/mm/yyyy');
       Log::info("USUÁRIO CRIADO EM $date, $user");
       return $this->successResponse($user);
@@ -249,34 +251,34 @@ class ActiveDirectoryController extends Controller
 
   public function changePassword($mail_user){
     try {
-			$content = [
-					'body' => 'Test',
-					'token' =>random_bytes(4)
-			];
+      $content = [
+        'body' => 'Test',
+        'token' =>random_bytes(4)
+      ];
 
-			$user = User::find('cn=Teste Teste da Silva Junior, OU=Desenvolvimento,DC=faesa,DC=br');
+      $user = User::find('cn=Teste Teste da Silva Junior, OU=Desenvolvimento,DC=faesa,DC=br');
 
-			$user->unicodepwd  = 'Faesa@202020';
+      $user->unicodepwd  = 'Faesa@202020';
 
-			$user->save();
-			$user->refresh();
+      $user->save();
+      $user->refresh();
 
-			Mail::to(['junior.devstack@gmail.com'])->send(new ResetPassword($content));
+      Mail::to(['junior.devstack@gmail.com'])->send(new ResetPassword($content));
 
-			return $this->successMessage('e-mail enviado com sucesso!');
+      return $this->successMessage('e-mail enviado com sucesso!');
 
     } catch (InsufficientAccessException $ex) {
         Log::warning("ERRO ALTERAR SENHA: $ex");
     } catch (ConstraintViolationException $ex) {
         Log::warning("ERRO ALTERAR SENHA: $ex");
     } catch (\LdapRecord\LdapRecordException $ex) {
-				$error = $ex->getDetailedError();
+      $error = $ex->getDetailedError();
 
-				echo $error->getErrorCode();
-				echo $error->getErrorMessage();
-				echo $error->getDiagnosticMessage();
+      echo $error->getErrorCode();
+      echo $error->getErrorMessage();
+      echo $error->getDiagnosticMessage();
 
-				Log::warning("ERRO ALTERAR SENHA: $error");
+      Log::warning("ERRO ALTERAR SENHA: $error");
     }
 
   }
