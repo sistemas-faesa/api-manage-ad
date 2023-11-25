@@ -26,10 +26,14 @@ class ActiveDirectoryController extends Controller
   private $connection;
   private $samaccountname;
   private $complementNumericSmaAccount = 0;
-  CONST CN = 'OU=Desenvolvimento,DC=faesa,DC=br';
+  CONST CN_DEV = 'OU=Desenvolvimento,DC=faesa,DC=br';
+  CONST CN_ALUNOS = 'OU=ATIVOS,OU=ALUNOS,OU=FAESA,DC=faesa,DC=br';
+  CONST CN_FUNCIONARIOS = 'OU=ADMINISTRATIVO,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
+  CONST CN_PROFESSORES = 'OU=DOCENTE,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
 
   public function __construct(Container $connection) {
     $this->connection = $connection::getConnection('default');
+    //TODO: Checar a conexão de acordo com a consulta dos grupos
   }
 
   public function validateSaveUser(Request $request)
@@ -44,6 +48,10 @@ class ActiveDirectoryController extends Controller
 
     if($this->checkIfUserExists('email', $request)){
       return $this->errorResponse("Este e-mail já se encontra cadastrado.");
+    }
+
+    if($this->checkIfUserExists('cpf', $request)){
+      return $this->errorResponse("Este cpf já se encontra cadastrado.");
     }
 
     $this->createSamAccountName($request);
@@ -94,12 +102,12 @@ class ActiveDirectoryController extends Controller
       return $msgError = "E-mail inválido";
     }
 
-    if(!$request->scriptpatch){
-      return $msgError = "Campo scriptpatch é obrigatório o preenchimento";
+    if(!$request->scriptpath){
+      return $msgError = "Campo scriptpath é obrigatório o preenchimento";
     }
 
-    if(!$request->maneger){
-      return $msgError = "Campo maneger é obrigatório o preenchimento";
+    if(!$request->manager){
+      return $msgError = "Campo manager é obrigatório o preenchimento";
     }
 
     if(!$request->pager){
@@ -112,12 +120,16 @@ class ActiveDirectoryController extends Controller
       return $msgError = "Campo title é obrigatório o preenchimento";
     }
 
-    if(!$request->departament){
-      return $msgError = "Campo departament é obrigatório o preenchimento";
-    }
-
     if(!$request->company){
       return $msgError = "Campo company é obrigatório o preenchimento";
+    }
+
+    if(!$request->department){
+      return $msgError = "Campo department é obrigatório o preenchimento";
+    }
+
+    if(!$request->userType){
+      return $msgError = "Campo userType é obrigatório o preenchimento";
     }
 
     if(!$request->ipphone){
@@ -132,34 +144,34 @@ class ActiveDirectoryController extends Controller
   public function createSamAccountName(Request $request)
   {
     $name = strtolower(
-							str_replace(
-								array('', 'à','á','â','ã','ä', 'ç', 'è','é','ê','ë', 'ì','í','î','ï',
-									'ñ', 'ò','ó','ô','õ','ö', 'ù','ú','û','ü', 'ý','ÿ', 'À','Á','Â','Ã','Ä',
-									'Ç', 'È','É','Ê','Ë', 'Ì','Í','Î','Ï', 'Ñ', 'Ò','Ó','Ô','Õ','Ö', 'Ù','Ú','Û','Ü', 'Ý'),
-									array('_', 'a','a','a','a','a', 'c', 'e','e','e','e', 'i','i','i','i', 'n', 'o','o','o',
-									'o','o', 'u','u','u','u', 'y','y', 'A','A','A','A','A', 'C', 'E','E','E','E', 'I','I','I',
-									'I', 'N', 'O','O','O','O','O', 'U','U','U','U', 'Y'),
-									$request->cn));
+                        str_replace(
+                            array('', 'à','á','â','ã','ä', 'ç', 'è','é','ê','ë', 'ì','í','î','ï',
+                                'ñ', 'ò','ó','ô','õ','ö', 'ù','ú','û','ü', 'ý','ÿ', 'À','Á','Â','Ã','Ä',
+                                'Ç', 'È','É','Ê','Ë', 'Ì','Í','Î','Ï', 'Ñ', 'Ò','Ó','Ô','Õ','Ö', 'Ù','Ú','Û','Ü', 'Ý'),
+                                array('_', 'a','a','a','a','a', 'c', 'e','e','e','e', 'i','i','i','i', 'n', 'o','o','o',
+                                'o','o', 'u','u','u','u', 'y','y', 'A','A','A','A','A', 'C', 'E','E','E','E', 'I','I','I',
+                                'I', 'N', 'O','O','O','O','O', 'U','U','U','U', 'Y'),
+                                $request->cn));
     $names = explode(" ", $name);
 
     $firstName = strval($names[0]);
 
     foreach($names as $key => $name){
-        if(strlen($name) < 3 || $key == 0){
-            continue;
-        }
+			if(strlen($name) < 3 || $key == 0){
+					continue;
+			}
 
-        $secondName = strval($names[$key]);
-        $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount == 0 ? '': $this->complementNumericSmaAccount);
+			$secondName = strval($names[$key]);
+			$this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount == 0 ? '': $this->complementNumericSmaAccount);
 
-        if ($this->checkIfUserExists('account', $request)){
-          if(count($names) - 1 == $key){
-            $this->complementNumericSmaAccount = random_int(1,99);
-            $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount);
-          }
-          continue;
-        }
-        break;
+			if ($this->checkIfUserExists('account', $request)){
+				if(count($names) - 1 == $key){
+					$this->complementNumericSmaAccount = random_int(1,99);
+					$this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount);
+				}
+				continue;
+			}
+			break;
     }
   }
 
@@ -176,41 +188,50 @@ class ActiveDirectoryController extends Controller
       case 'email':
         $check = $this->connection->query()->where('mail', '=', $request->mail)->get();
       break;
+      case 'cpf':
+        $check = $this->connection->query()->where('description', '=', $request->description)->get();
+      break;
     }
     return $check;
   }
 
   private function saveUser(Request $request){
-    $user = (new User)->inside(self::CN);
-    $user->cn = $request->cn;
-    $user->unicodePwd = 'Faesa@2023';
-    $user->sn = $request->cn;
-    $user->mail = $request->mail;
-    $user->samaccountname = $this->samaccountname;
-    $user->userAccountControl = 512;
+
+    switch($request->userType){
+      case 'aluno':
+        $user = (new User)->inside(self::CN_ALUNOS);
+      break;
+      case 'funcionario':
+        $user = (new User)->inside(self::CN_FUNCIONARIOS);
+      break;
+      case 'professor':
+        $user = (new User)->inside(self::CN_PROFESSORES);
+      break;
+      case 'dev':
+        $user = (new User)->inside(self::CN_DEV);
+      break;
+    }
+
     $user->givenname = $request->givenname;
     $user->displayname = $request->displayname;
     $user->cn = $request->cn;
     $user->sn = $request->sn;
-    $user->displayname = $request->displayname;
     $user->description = $request->description;
     $user->physicaldeliveryofficename = $request->physicaldeliveryofficename;
     $user->mail = $request->mail;
     $user->samaccountname = $this->samaccountname;
     $user->userAccountControl = 512;
-    // $user->scriptpatch = $request->scriptpatch;
+    $user->scriptpath = $request->scriptpath;
     $user->ipphone = $request->ipphone;
     $user->pager = $request->pager;
     $user->title = $request->title;
-    // $user->departament = $request->departament;
+    $user->department = $request->department;
     $user->company = $request->company;
-    // $user->maneger = $request->maneger;
-    // $user->memberof = ["CN=Wireless Alunos,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br"];
-    $user->proxyaddresses = $request->proxyaddresses;
+    // $user->manager = $request->manager; //TODO: Checar formato de manager =  "CN=Ewerton Bortolozo Nunes,OU=Nucleo de Tecnologia da Informacao,OU=Faesa,OU=Logins Iniciais,DC=faesa,DC=br"
     $user->unicodePwd = 'Faesa@2023';
+    $user->proxyaddresses = $request->proxyaddresses;
 
-    $group = Group::find('CN=Desenvolvimento,DC=faesa,DC=br');
-
+    // $user->memberof = ["CN=Wireless Alunos,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br"];
     // $group = Group::find('cn=Accounting,dc=local,dc=com');
 
     try {
@@ -228,34 +249,34 @@ class ActiveDirectoryController extends Controller
 
   public function changePassword($mail_user){
     try {
-        $content = [
-            'body' => 'Test',
-            'token' =>random_bytes(4)
-        ];
+			$content = [
+					'body' => 'Test',
+					'token' =>random_bytes(4)
+			];
 
-        $user = User::find('cn=Teste Teste da Silva Junior, OU=Desenvolvimento,DC=faesa,DC=br');
+			$user = User::find('cn=Teste Teste da Silva Junior, OU=Desenvolvimento,DC=faesa,DC=br');
 
-        $user->unicodepwd  = 'Faesa@202020';
+			$user->unicodepwd  = 'Faesa@202020';
 
-        $user->save();
-        $user->refresh();
+			$user->save();
+			$user->refresh();
 
-        Mail::to(['junior.devstack@gmail.com'])->send(new ResetPassword($content));
+			Mail::to(['junior.devstack@gmail.com'])->send(new ResetPassword($content));
 
-        return $this->successMessage('e-mail enviado com sucesso!');
+			return $this->successMessage('e-mail enviado com sucesso!');
 
     } catch (InsufficientAccessException $ex) {
         Log::warning("ERRO ALTERAR SENHA: $ex");
     } catch (ConstraintViolationException $ex) {
         Log::warning("ERRO ALTERAR SENHA: $ex");
     } catch (\LdapRecord\LdapRecordException $ex) {
-        $error = $ex->getDetailedError();
+				$error = $ex->getDetailedError();
 
-        echo $error->getErrorCode();
-        echo $error->getErrorMessage();
-        echo $error->getDiagnosticMessage();
+				echo $error->getErrorCode();
+				echo $error->getErrorMessage();
+				echo $error->getDiagnosticMessage();
 
-        Log::warning("ERRO ALTERAR SENHA: $error");
+				Log::warning("ERRO ALTERAR SENHA: $error");
     }
 
   }
