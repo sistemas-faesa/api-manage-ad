@@ -4,6 +4,7 @@ namespace App\Http\Controllers\System;
 
 use Exception;
 use App\Ldap\UserLdap;
+use App\Utils\Helpers;
 use LdapRecord\Container;
 use App\Mail\ResetPassword;
 use App\Traits\ApiResponser;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Mail;
 use LdapRecord\Models\ActiveDirectory\User;
 use LdapRecord\Models\ActiveDirectory\Group;
+use LdapRecord\Models\Attributes\DistinguishedName;
 use LdapRecord\Exceptions\InsufficientAccessException;
 use LdapRecord\Exceptions\ConstraintViolationException;
 
@@ -25,6 +27,8 @@ class ActiveDirectoryController extends Controller
 
   private $connection;
   private $samaccountname;
+  private $givenname;
+  private $sn;
   private $complementNumericSmaAccount = 0;
   CONST CN_DEV = 'OU=Desenvolvimento,DC=faesa,DC=br';
   CONST CN_ALUNOS = 'OU=ATIVOS,OU=ALUNOS,OU=FAESA,DC=faesa,DC=br';
@@ -33,7 +37,7 @@ class ActiveDirectoryController extends Controller
 
   public function __construct(Container $connection) {
     $this->connection = $connection::getConnection('default');
-    //TODO: Checar a conexão de acordo com a consulta dos grupos
+    ini_set('memory_limit', '-1');
   }
 
   public function validateSaveUser(Request $request)
@@ -47,14 +51,18 @@ class ActiveDirectoryController extends Controller
     }
 
     if($this->checkIfUserExists('email', $request)){
-      return $this->errorResponse("Este e-mail já se encontra cadastrado.");
+      return $this->errorResponse("Este e-mail já encontra-se cadastrado.");
     }
 
     if($this->checkIfUserExists('cpf', $request)){
-      return $this->errorResponse("Este cpf já se encontra cadastrado.");
+      return $this->errorResponse("Este cpf já encontra-se cadastrado.");
     }
 
-    $this->createSamAccountName($request);
+    if($this->checkIfUserExists('matricula', $request)){
+      return $this->errorResponse("Esta matrícula já encontra-se cadastrada.");
+    }
+
+    $this->createSamAccountNameGivenNameSn($request);
 
     return $this->saveUser($request);
   }
@@ -62,17 +70,10 @@ class ActiveDirectoryController extends Controller
   public function validarCampos(Request $request){
     $msgError = "";
     // $patternCpf = '/^\d{3}\.\d{3}\.\d{3}\-\d{2}$/';
-    $patternCpf = '/^\d{11}/';
+    $patternCpf = '/^\d{11}$/';
     // $patternPhone = '/^(?:(?:\+|00)?(55)\s?)?(?:(?:\(?[1-9][0-9]\)?)?\s?)?(?:((?:9\d|[2-9])\d{3})-?(\d{4}))$/';
-    $patternPhone = '/^\d{4}/';
-
-    if(!$request->givenname){
-      return $msgError = "Campo givenname é obrigatório o preenchimento";
-    }
-
-    if(!$request->displayname){
-      return $msgError = "Campo displayname é obrigatório o preenchimento";
-    }
+    $patternPhone = '/^\d{4}$/';
+    $patternPhysicalDeliveryOfficeName = '/^\d{7}/';
 
     if(!$request->cn){
       return $msgError = "Campo cn é obrigatório o preenchimento";
@@ -80,10 +81,6 @@ class ActiveDirectoryController extends Controller
 
     if(!strstr($request->cn, " ")){
       return $msgError = "Nome com Formato incorreto!";
-    }
-
-    if(!$request->sn){
-      return $msgError = "Campo sn é obrigatório o preenchimento";
     }
 
     if(!$request->description){
@@ -94,7 +91,7 @@ class ActiveDirectoryController extends Controller
 
     if(!$request->physicaldeliveryofficename){
       return $msgError = "Campo physicaldeliveryofficename é obrigatório o preenchimento";
-    }elseif(!preg_match($patternPhone, $request->physicaldeliveryofficename)){
+    }elseif(!preg_match($patternPhysicalDeliveryOfficeName, $request->physicaldeliveryofficename)){
         return $msgError = "Formato physicaldeliveryofficename está incorreto";
       }
 
@@ -104,10 +101,6 @@ class ActiveDirectoryController extends Controller
 
     if(!$request->scriptpath){
       return $msgError = "Campo scriptpath é obrigatório o preenchimento";
-    }
-
-    if(!$request->manager){
-      return $msgError = "Campo manager é obrigatório o preenchimento";
     }
 
     if(!$request->pager){
@@ -141,31 +134,27 @@ class ActiveDirectoryController extends Controller
     return $msgError;
   }
 
-  public function createSamAccountName(Request $request)
+  public function createSamAccountNameGivenNameSn(Request $request)
   {
-    $name = strtolower(
-                        str_replace(
-                            array('', 'à','á','â','ã','ä', 'ç', 'è','é','ê','ë', 'ì','í','î','ï',
-                                'ñ', 'ò','ó','ô','õ','ö', 'ù','ú','û','ü', 'ý','ÿ', 'À','Á','Â','Ã','Ä',
-                                'Ç', 'È','É','Ê','Ë', 'Ì','Í','Î','Ï', 'Ñ', 'Ò','Ó','Ô','Õ','Ö', 'Ù','Ú','Û','Ü', 'Ý'),
-                                array('_', 'a','a','a','a','a', 'c', 'e','e','e','e', 'i','i','i','i', 'n', 'o','o','o',
-                                'o','o', 'u','u','u','u', 'y','y', 'A','A','A','A','A', 'C', 'E','E','E','E', 'I','I','I',
-                                'I', 'N', 'O','O','O','O','O', 'U','U','U','U', 'Y'),
-                                $request->cn));
-    $names = explode(" ", $name);
+    $name = Helpers::clearName($request->cn);
+    $namesDivided = explode(" ", $name);
+    $firstName = strval($namesDivided[0]);
+    $this->givenname = $firstName;
 
-    $firstName = strval($names[0]);
-
-    foreach($names as $key => $name){
+    foreach($namesDivided as $key => $name){
       if(strlen($name) < 3 || $key == 0){
         continue;
       }
 
-      $secondName = strval($names[$key]);
+      $secondName = strval($namesDivided[$key]);
+      // Aplicar o segundo nome ao SN.
+      if($key == 2){
+        $this->sn = ucfirst($secondName);
+      }
       $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount == 0 ? '': $this->complementNumericSmaAccount);
 
       if ($this->checkIfUserExists('account', $request)){
-        if(count($names) - 1 == $key){
+        if(count($namesDivided) - 1 == $key){
           $this->complementNumericSmaAccount = random_int(1,99);
           $this->samaccountname = $firstName.'.'.$secondName.strval($this->complementNumericSmaAccount);
         }
@@ -177,6 +166,7 @@ class ActiveDirectoryController extends Controller
 
   private function checkIfUserExists(string $type, Request $request = null){
     $check = [];
+    $query = $this->connection;
 
     switch($type){
       case 'account':
@@ -190,6 +180,9 @@ class ActiveDirectoryController extends Controller
       break;
       case 'cpf':
         $check = $this->connection->query()->where('description', '=', $request->description)->get();
+      break;
+      case 'matricula':
+        $check = $this->connection->query()->where('physicaldeliveryofficename', '=', $request->physicaldeliveryofficename)->get();
       break;
     }
     return $check;
@@ -212,40 +205,34 @@ class ActiveDirectoryController extends Controller
       break;
     }
 
-    $user->givenname = $request->givenname;
-    $user->displayname = $request->displayname;
+    $user->givenname = $this->givenname;
+    $user->displayname = $request->cn;
     $user->cn = $request->cn;
-    $user->sn = $request->sn;
+    $user->sn = $this->sn;
     $user->description = $request->description;
     $user->physicaldeliveryofficename = $request->physicaldeliveryofficename;
     $user->mail = $request->mail;
     $user->samaccountname = $this->samaccountname;
-    $user->userAccountControl = 512;
     $user->scriptpath = $request->scriptpath;
     $user->ipphone = $request->ipphone;
-    $user->pager = $request->pager;
     $user->title = $request->title;
     $user->department = $request->department;
     $user->company = $request->company;
-    // $user->manager = $request->manager; //TODO: Checar formato de manager =  "CN=Ewerton Bortolozo Nunes,OU=Nucleo de Tecnologia da Informacao,OU=Faesa,OU=Logins Iniciais,DC=faesa,DC=br"
-    $user->unicodePwd = 'Faesa@2023';
-    $user->proxyaddresses = $request->proxyaddresses;
-
-    // $user->memberof = ["CN=Wireless Alunos,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br"];
-    // $group = Group::find('cn=Accounting,dc=local,dc=com');
+    $user->unicodePwd = "Faesa@2023";
+    $user->proxyaddresses = "SMTP:".$request->mail;
+    $user->userAccountControl = 512;
 
     try {
-      $user->save();
-      $user->refresh();
-
-      $user->manager()->attach($user);
-
-      $date = Date('dd/mm/yyyy');
-      Log::info("USUÁRIO CRIADO EM $date, $user");
-      return $this->successResponse($user);
+        $user->save();
+        $user->refresh();
+        $user->manager()->attach($user);
+        $date = Date('dd/mm/yyyy');
+        Log::info("USUÁRIO CRIADO EM $date, $user");
+        return $this->successResponse($user);
 
     }catch(Exception  $ex){
         Log::warning("ERRO AO CRIAR O USUÁRIO: CODE: $ex");
+        echo $ex;
     }
   }
 
@@ -283,11 +270,31 @@ class ActiveDirectoryController extends Controller
 
   }
 
-  public function listAllUsers()
+  public function listAllUsers(Request $request)
   {
-    $users = UserLdap::paginate(5);
+    if(!$request->listType){
+      return $this->errorResponse("Campo listType é obrigatório para a busca", 400);
+    }
 
-    return $this->successResponse($users);
+    $ouQuery = '';
+    switch($request->listType){
+      case 'aluno':
+        $ouQuery = self::CN_ALUNOS;
+      break;
+      case 'funcionario':
+        $ouQuery = self::CN_FUNCIONARIOS;
+      break;
+      case 'professor':
+        $ouQuery = self::CN_PROFESSORES;
+      break;
+      case 'dev':
+        $ouQuery = self::CN_DEV;
+      break;
+    }
+
+    $users = $this->connection->query()->in($ouQuery)->where('useraccountcontrol', 512)->get();
+
+    return $this->successResponse(mb_convert_encoding($users, 'UTF-8', 'UTF-8'));
   }
 
 }

@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['access.security', 'cors'])->prefix('v1')->group(function(){
     Route::post('ad-manage/auth', [LoginRequest::class, 'authenticate']);
     Route::post('ad-manage/create-user', [ActiveDirectoryController::class, 'validateSaveUser']);
-    Route::get('ad-manage/list-users', [ActiveDirectoryController::class, 'listAllUsers']);
+    Route::post('ad-manage/list-users', [ActiveDirectoryController::class, 'listAllUsers']);
     Route::patch('ad-manage/change-password/{mail_user}', [ActiveDirectoryController::class, 'changePassword']);
 });
 // Route::prefix('v1')->middleware('jwt.auth')->group(function(){
