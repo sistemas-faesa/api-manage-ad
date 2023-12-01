@@ -47,7 +47,6 @@ class LoginRequest extends FormRequest
             RateLimiter::hit($this->throttleKey());
             return $this->errorResponse(['fail' => 'unauthenticated']);
         }else{
-
             return response()->json([
                 'user_info' => auth('api')->user(),
                 // 'access_token' => $token,

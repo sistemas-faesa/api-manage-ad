@@ -13,4 +13,17 @@ class Helpers{
             'I', 'N', 'O','O','O','O','O', 'U','U','U','U', 'Y'),
             $name));
   }
+
+  public static function patternFormat(String $type): String{
+    $formats = [
+        'patternPhoneComplete' => '/^(?:(?:\+|00)?(55)\s?)?(?:(?:\(?[1-9][0-9]\)?)?\s?)?(?:((?:9\d|[2-9])\d{3})-?(\d{4}))$/',
+        'patternCpfComplete' => '/^\d{3}\.\d{3}\.\d{3}\-\d{2}$/',
+        'patternPhysicalDeliveryOfficeName' => '/^\d{7}/',
+        'patternSerialNumber' => '/^\d{11}$/',
+        'patternPhoneDigit' => '/^\d{4}$/',
+        'patternCpf' => '/^\d{11}$/',
+    ];
+
+    return $formats[$type];
+  }
 }
