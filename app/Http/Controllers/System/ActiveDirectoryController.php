@@ -261,40 +261,6 @@ class ActiveDirectoryController extends Controller
         }
     }
 
-    public function changePassword(Request $request)
-    {
-        try {
-            $tokenController = new SendTokenResetPasswordController($this->connection);
-
-            if($tokenController->validateToken($request->token) == 'token_invalido'){
-                return $this->errorResponse('O Token não é mais válido');
-            }
-
-            $user = $this->connection->query()->where('description', '=', $request->cpf)->get();
-
-            $user->unicodepwd  = $request->password;
-
-            $user->save();
-            $user->refresh();
-
-            $tokenController->changeStatusToken($request->token);
-
-            return $this->successMessage('e-mail enviado com sucesso!');
-        } catch (InsufficientAccessException $ex) {
-            Log::warning("ERRO ALTERAR SENHA: $ex");
-        } catch (ConstraintViolationException $ex) {
-            Log::warning("ERRO ALTERAR SENHA: $ex");
-        } catch (\LdapRecord\LdapRecordException $ex) {
-            $error = $ex->getDetailedError();
-
-            echo $error->getErrorCode();
-            echo $error->getErrorMessage();
-            echo $error->getDiagnosticMessage();
-
-            Log::warning("ERRO ALTERAR SENHA: $error");
-        }
-    }
-
     public function listAllUsers(Request $request)
     {
         $listType = $request->listType;

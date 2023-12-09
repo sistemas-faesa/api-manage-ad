@@ -27,6 +27,7 @@ Route::middleware(['access.security', 'cors'])->prefix('v1')->group(function(){
     Route::get('ad-manage/reset-password/get-user-by-cpf', [ResetPasswordController::class, 'getUserByCpf']);
     Route::post('ad-manage/reset-password/send-token', [SendTokenResetPasswordController::class, 'sendToken']);
     Route::post('ad-manage/reset-password/validate-token', [SendTokenResetPasswordController::class, 'validateToken']);
+    Route::patch('ad-manage/change-password/', [SendTokenResetPasswordController::class, 'changePassword']);
 });
 // Route::prefix('v1')->middleware('jwt.auth')->group(function(){
 //     Route::get('ad-manage/me', [LoginRequest::class, "me"]);

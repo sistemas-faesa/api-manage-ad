@@ -12,8 +12,10 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Mail;
 use LdapRecord\Models\ActiveDirectory\User;
-use LdapRecord\Models\ActiveDirectory\User as ActiveDirectoryUser;
 use LdapRecord\Models\Attributes\Timestamp;
+use LdapRecord\Exceptions\InsufficientAccessException;
+use LdapRecord\Exceptions\ConstraintViolationException;
+use LdapRecord\Models\ActiveDirectory\User as ActiveDirectoryUser;
 
 class SendTokenResetPasswordController extends Controller
 {
@@ -129,6 +131,39 @@ class SendTokenResetPasswordController extends Controller
         }
 
         return $validTime;
+    }
+
+    public function changePassword(Request $request)
+    {
+        try {
+
+            if($this->validateToken($request->token) == 'token_invalido'){
+                return $this->errorResponse('O Token não é mais válido');
+            }
+
+            $user = $this->connection->query()->where('description', '=', $request->cpf)->get();
+
+            $user->unicodepwd  = $request->password;
+
+            $user->save();
+            $user->refresh();
+
+            $this->changeStatusToken($request->token);
+
+            return $this->successMessage('e-mail enviado com sucesso!');
+        } catch (InsufficientAccessException $ex) {
+            Log::warning("ERRO ALTERAR SENHA: $ex");
+        } catch (ConstraintViolationException $ex) {
+            Log::warning("ERRO ALTERAR SENHA: $ex");
+        } catch (\LdapRecord\LdapRecordException $ex) {
+            $error = $ex->getDetailedError();
+
+            echo $error->getErrorCode();
+            echo $error->getErrorMessage();
+            echo $error->getDiagnosticMessage();
+
+            Log::warning("ERRO ALTERAR SENHA: $error");
+        }
     }
 
     public function changeStatusToken($token)
