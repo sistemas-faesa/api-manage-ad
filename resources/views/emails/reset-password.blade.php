@@ -5,6 +5,6 @@
 </head>
 <body>
     <p>Clique no link abaixo e você será direcionado para uma página para alerar a sua senha.</p><br/>
-    {{ $token }}
+    {{ $link }}
 </body>
 </html>

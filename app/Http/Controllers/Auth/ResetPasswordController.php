@@ -34,6 +34,10 @@ class ResetPasswordController extends Controller
 
         $user = $this->connection->query()->where('description', '=', $request->cpf)->first();
 
+        if(!$user){
+            return $this->errorResponse("CPF Não encontrado!");
+        }
+
         $email = $user['mail'][0];
         $emailMasked =  str::mask($email, '*', 4, 7);
 
@@ -44,5 +48,19 @@ class ResetPasswordController extends Controller
         ];
 
         return $this->successResponse($data);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $request->validate(
+            [
+                'password' => 'required|string|',
+                'confirmPassword' => 'required|string|',
+            ],
+            [
+                'cpf.required' => 'O campo CPF é obrigatório para esta ação',
+                'cpf.string' => 'O campo CPF precisa ser do tipo String'
+            ]
+        );
     }
 }

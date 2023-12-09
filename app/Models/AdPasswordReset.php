@@ -14,7 +14,11 @@ class AdPasswordReset extends Model
         'email',
         'cpf',
         'token',
-        'last_used_at',
+        'updated_at',
         'created_at',
+    ];
+
+    protected $hidden = [
+        'token'
     ];
 }

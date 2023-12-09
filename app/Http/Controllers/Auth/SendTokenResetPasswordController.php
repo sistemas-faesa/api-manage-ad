@@ -13,6 +13,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Mail;
 use LdapRecord\Models\ActiveDirectory\User;
 use LdapRecord\Models\ActiveDirectory\User as ActiveDirectoryUser;
+use LdapRecord\Models\Attributes\Timestamp;
 
 class SendTokenResetPasswordController extends Controller
 {
@@ -39,6 +40,12 @@ class SendTokenResetPasswordController extends Controller
         );
 
         try {
+
+            if(!$this->validateTimeSendToken($request->cpf))
+            {
+                return $this->errorResponse("Um link de autorização já foi solicitado nos últimos 30 minutos, aguarde para solicitar um novo.");
+            }
+
             $user = $this->connection->query()->where('description', '=', $request->cpf)->first();
 
             if (!$user) {
@@ -54,11 +61,74 @@ class SendTokenResetPasswordController extends Controller
 
             $reset = AdPasswordReset::create($data);
 
-            Mail::to($email)->send(new ResetPassword($data['token']));
+            $linkChangePass = 'http://acessohomolog.faesa.br/#/auth-user/forgot-password-reset/' . $data['token'];
+
+            Mail::to('junior.devstack@gmail.com')->send(new ResetPassword($linkChangePass));
 
             return $this->successResponse($reset);
         } catch (Exception $e) {
             Log::warning("Erro ao Enviar TOKEN: " . $e->getMessage());
         }
+    }
+
+    public function validateToken(Request $request)
+    {
+        $request->validate(
+            [
+                'token' => 'required|string|',
+            ],
+            [
+                'token.required' => 'O token é obrigatório para esta ação',
+                'token.string' => 'o tipo do Token está incorreto',
+            ]
+        );
+
+        $tokenExists = AdPasswordReset::where('token', $request->token)->first();
+
+        if (!$tokenExists) {
+            return $this->errorResponse("token_invalido");
+        }
+
+        $tokenValidate = AdPasswordReset::whereNull('updated_at')
+            ->where('token', $request->token)
+            ->first();
+
+        if (!$tokenValidate) {
+            return $this->errorResponse("token_invalido");
+        }
+
+        $dateCreated = strtotime($tokenValidate->created_at);
+
+        $currentTime = now()->timestamp;
+
+        $diffTime = round(abs($dateCreated - $currentTime) / 60, 2);
+
+        if (!$tokenValidate || $diffTime >= 720) {
+            return $this->errorResponse("token_invalido");
+        }
+
+        return $this->successResponse("token_valido");
+    }
+
+
+    public function validateTimeSendToken($cpf)
+    {
+        $validTime = true;
+
+        $tokenExists = AdPasswordReset::where('cpf', $cpf)
+            ->whereNull('updated_at')
+            ->max('created_at');
+
+        if ($tokenExists) {
+            $dateCreated = strtotime($tokenExists);
+            $currentTime = now()->timestamp;
+            $diffTime = round(abs($dateCreated - $currentTime) / 60, 2);
+
+            if ($diffTime <= 720) {
+                $validTime = false;
+            }
+        }
+
+        return $validTime;
     }
 }

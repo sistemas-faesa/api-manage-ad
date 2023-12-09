@@ -195,7 +195,7 @@ class ActiveDirectoryController extends Controller
                 $check = $this->connection->query()->where('mail', '=', $request->mail)->get();
                 break;
             case 'cpf':
-                $check = $this->connection->query()->where('description', '=', $request->description)->get();
+                $check = $this->connection->query()->whereRaw("trim(REPLACE(REPLACE(description),'-',''),'.','') = ? ", $request->description)->get();
                 break;
             case 'matricula':
                 $check = $this->connection->query()->where('physicaldeliveryofficename', '=', $request->physicaldeliveryofficename)->get();
@@ -296,6 +296,7 @@ class ActiveDirectoryController extends Controller
     public function listAllUsers(Request $request)
     {
         $listType = $request->listType;
+        $finaList = [];
 
         $ouQuery = '';
         switch ($listType) {
@@ -313,8 +314,60 @@ class ActiveDirectoryController extends Controller
                 break;
         }
 
-        $users = $this->connection->query()->select('cn', 'mail', 'description', 'samaccountname', 'dateofBirth', 'serialNumber', 'accountexpires')->in($ouQuery)->where('useraccountcontrol', 512)->paginate(100);
+        $users = $this->connection->query()
+            ->select('cn', 'displayname', 'mail', 'description', 'samaccountname', 'dateofBirth', 'serialNumber', 'physicaldeliveryofficename', 'accountexpires')
+            ->in($ouQuery)
+            ->where('useraccountcontrol', 512)
+            ->slice($page = $request->page, $perPage = $request->pageSize);
 
-        return response()->json(mb_convert_encoding($users, 'UTF-8'));
+        foreach ($users as $user) {
+            array_push($finaList, [
+                'cn' => $user['cn'][0],
+                'displayname' => isset($user['displayname']) ? $user['displayname'][0] : 'NI',
+                'samaccountname' => $user['samaccountname'][0],
+                'mail' => isset($user['mail']) ? $user['mail'][0] : 'NI',
+                'cpf' => isset($user['description']) ? $user['description'][0] : 'NI',
+                'dateofBirth' => isset($user['dateofBirth']) ? $user['dateofBirth'][0] : 'NI',
+                'matriculaFunc' => isset($user['serialNumber']) ? $user['serialNumber'][0] : 'NI',
+                'matricula' => isset($user['physicaldeliveryofficename']) ? $user['physicaldeliveryofficename'][0] : 'NI',
+            ]);
+        }
+
+        $data = [
+            'data' => $finaList,
+            'total' => $users->total()
+        ];
+
+        return response()->json($data);
+    }
+
+    public function getGroups(){
+        $finaList = [];
+        $groups = Group::all();
+
+        foreach($groups as $group){
+            array_push($finaList, [
+                'cn' => $group->cn,
+                'description' => $group->description
+            ]);
+        }
+
+        return $this->successResponse($finaList);
+    }
+
+    public function getMembersGroup(Request $request){
+        if(!$request->group){
+            return $this->errorResponse("campo group é obrigatório");
+        }
+
+        $group = Group::query()->where('cn', '=', $request->group)->get();
+
+        $group = Group::find('cn=Administração SQLServer,dc=faesa,dc=br');
+
+        $user = $this->connection->query()->where('description', '118.930.397-30')->get();
+
+        // $group->members()->attach($user);
+
+        return $this->successResponse($group);
     }
 }
