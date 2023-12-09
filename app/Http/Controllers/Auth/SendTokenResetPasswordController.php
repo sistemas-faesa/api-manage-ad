@@ -41,8 +41,7 @@ class SendTokenResetPasswordController extends Controller
 
         try {
 
-            if(!$this->validateTimeSendToken($request->cpf))
-            {
+            if (!$this->validateTimeSendToken($request->cpf)) {
                 return $this->errorResponse("Um link de autorização já foi solicitado nos últimos 30 minutos, aguarde para solicitar um novo.");
             }
 
@@ -130,5 +129,15 @@ class SendTokenResetPasswordController extends Controller
         }
 
         return $validTime;
+    }
+
+    public function changeStatusToken($token)
+    {
+        try {
+            $tokenAdPassword = AdPasswordReset::where('token', $token)->update(['updated_at' => now()]);
+            return  $this->successResponse($tokenAdPassword);
+        } catch (Exception $e) {
+            Log::warning("ERRO AO ALTERAR STATUS TOKEN, AO ALTERAR A SENHA: " . $e);
+        }
     }
 }

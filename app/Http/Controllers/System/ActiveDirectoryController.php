@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\System;
 
+use App\Http\Controllers\Auth\SendTokenResetPasswordController;
 use DateTime;
 use Exception;
 use DateTimeZone;
@@ -195,7 +196,7 @@ class ActiveDirectoryController extends Controller
                 $check = $this->connection->query()->where('mail', '=', $request->mail)->get();
                 break;
             case 'cpf':
-                $check = $this->connection->query()->whereRaw("trim(REPLACE(REPLACE(description),'-',''),'.','') = ? ", $request->description)->get();
+                $check = $this->connection->query()->where('description', '=', $request->description)->get();
                 break;
             case 'matricula':
                 $check = $this->connection->query()->where('physicaldeliveryofficename', '=', $request->physicaldeliveryofficename)->get();
@@ -260,22 +261,23 @@ class ActiveDirectoryController extends Controller
         }
     }
 
-    public function changePassword($mail_user)
+    public function changePassword(Request $request)
     {
         try {
-            $content = [
-                'body' => 'Test',
-                'token' => random_bytes(4)
-            ];
+            $tokenController = new SendTokenResetPasswordController($this->connection);
 
-            $user = User::find('cn=Teste Teste da Silva Junior, OU=Desenvolvimento,DC=faesa,DC=br');
+            if($tokenController->validateToken($request->token) == 'token_invalido'){
+                return $this->errorResponse('O Token não é mais válido');
+            }
 
-            $user->unicodepwd  = 'Faesa@202020';
+            $user = $this->connection->query()->where('description', '=', $request->cpf)->get();
+
+            $user->unicodepwd  = $request->password;
 
             $user->save();
             $user->refresh();
 
-            // Mail::to(['junior.devstack@gmail.com'])->send(new ResetPassword($content));
+            $tokenController->changeStatusToken($request->token);
 
             return $this->successMessage('e-mail enviado com sucesso!');
         } catch (InsufficientAccessException $ex) {
