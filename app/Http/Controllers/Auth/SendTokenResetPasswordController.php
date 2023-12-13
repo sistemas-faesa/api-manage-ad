@@ -10,12 +10,12 @@ use Illuminate\Http\Request;
 use App\Models\AdPasswordReset;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
+use App\Ldap\UserLdap;
 use Illuminate\Support\Facades\Mail;
-use LdapRecord\Models\ActiveDirectory\User;
-use LdapRecord\Models\Attributes\Timestamp;
 use LdapRecord\Exceptions\InsufficientAccessException;
 use LdapRecord\Exceptions\ConstraintViolationException;
-use LdapRecord\Models\ActiveDirectory\User as ActiveDirectoryUser;
+use LdapRecord\Models\ActiveDirectory\User;
+use Illuminate\Support\Str;
 
 class SendTokenResetPasswordController extends Controller
 {
@@ -27,6 +27,36 @@ class SendTokenResetPasswordController extends Controller
     {
         $this->connection = $connection::getConnection('default');
         ini_set('memory_limit', '-1');
+    }
+
+    public function getUserByCpf(Request $request)
+    {
+        $request->validate(
+            [
+                'cpf' => 'required|string|',
+            ],
+            [
+                'cpf.required' => 'O campo CPF é obrigatório para esta ação',
+                'cpf.string' => 'O campo CPF precisa ser do tipo String'
+            ]
+        );
+
+        $user = $this->connection->query()->where('description', '=', $request->cpf)->first();
+
+        if(!$user){
+            return $this->errorResponse("CPF Não encontrado!");
+        }
+
+        $email = $user['mail'][0];
+        $emailMasked =  str::mask($email, '*', 4, 7);
+
+        $data = [
+            'nome' => $user['cn'][0],
+            'email' =>  $emailMasked,
+            'cpf' => $user['description'][0],
+        ];
+
+        return $this->successResponse($data);
     }
 
     public function sendToken(Request $request)
@@ -42,9 +72,8 @@ class SendTokenResetPasswordController extends Controller
         );
 
         try {
-
             if (!$this->validateTimeSendToken($request->cpf)) {
-                return $this->errorResponse("Um link de autorização já foi solicitado nos últimos 30 minutos, aguarde para solicitar um novo.");
+                return $this->errorResponse("Um link de autorização já foi solicitado nas últimas 24 horas, aguarde para solicitar um novo.");
             }
 
             $user = $this->connection->query()->where('description', '=', $request->cpf)->first();
@@ -94,7 +123,7 @@ class SendTokenResetPasswordController extends Controller
             ->where('token', $request->token)
             ->first();
 
-        if (!$tokenValidate) {
+        if(!$tokenValidate){
             return $this->errorResponse("token_invalido");
         }
 
@@ -133,24 +162,45 @@ class SendTokenResetPasswordController extends Controller
         return $validTime;
     }
 
-    public function changePassword(Request $request)
+    public function changePasswordPublic(Request $request)
     {
-        try {
+        $request->validate(
+            [
+                'password' => 'required',
+                'token' => 'required|string|',
+            ],
+            [
+                'password.required' => 'O campo password é obrigatório para esta ação',
+                'token.required' => 'O token é obrigatório para esta ação',
+                'token.string' => 'o tipo do Token está incorreto',
+            ]
+        );
 
-            if($this->validateToken($request->token) == 'token_invalido'){
-                return $this->errorResponse('O Token não é mais válido');
+        try {
+            $validateToken = $this->validateToken($request)->getData();
+
+            if (isset($validateToken->error)) {
+                return $this->errorResponse('O Token não é válido');
             }
 
-            $user = $this->connection->query()->where('description', '=', $request->cpf)->get();
+            $userToken = AdPasswordReset::where('token', $request->token)->first();
 
-            $user->unicodepwd  = $request->password;
+            $userInfo = $this->connection->query()->where('description', '=', $userToken->cpf)->get();
+            $userCnFind = $userInfo[0]['dn'];
+
+            $user = User::find($userCnFind);
+
+			$user->unicodepwd  = $request->password;
 
             $user->save();
             $user->refresh();
 
             $this->changeStatusToken($request->token);
 
-            return $this->successMessage('e-mail enviado com sucesso!');
+            $data = ['data' => 'Senha alterada com sucesso'];
+
+            return $this->successMessage($data);
+
         } catch (InsufficientAccessException $ex) {
             Log::warning("ERRO ALTERAR SENHA: $ex");
         } catch (ConstraintViolationException $ex) {
@@ -162,7 +212,51 @@ class SendTokenResetPasswordController extends Controller
             echo $error->getErrorMessage();
             echo $error->getDiagnosticMessage();
 
-            Log::warning("ERRO ALTERAR SENHA: $error");
+            Log::warning("ERRO ALTERAR SENHA: ". $ex);
+        }
+    }
+
+    public function changePasswordAdmin(Request $request)
+    {
+        $request->validate(
+            [
+                'password' => 'required',
+                'cpf' => 'required|string|',
+            ],
+            [
+                'password.required' => 'O campo password é obrigatório para esta ação',
+                'cpf.required' => 'O cpf é obrigatório para esta ação',
+                'cpf.string' => 'o tipo do cpf está incorreto',
+            ]
+        );
+
+        try {
+            $userInfo = $this->connection->query()->where('description', '=', $request->cpf)->get();
+            $userCnFind = $userInfo[0]['dn'];
+
+            $user = User::find($userCnFind);
+
+			$user->unicodepwd  = $request->password;
+
+            $user->save();
+            $user->refresh();
+
+            $data = ['data' => 'Senha alterada com sucesso'];
+
+            return $this->successMessage($data);
+
+        } catch (InsufficientAccessException $ex) {
+            Log::warning("ERRO ALTERAR SENHA: $ex");
+        } catch (ConstraintViolationException $ex) {
+            Log::warning("ERRO ALTERAR SENHA: $ex");
+        } catch (\LdapRecord\LdapRecordException $ex) {
+            $error = $ex->getDetailedError();
+
+            echo $error->getErrorCode();
+            echo $error->getErrorMessage();
+            echo $error->getDiagnosticMessage();
+
+            Log::warning("ERRO ALTERAR SENHA: ". $ex);
         }
     }
 

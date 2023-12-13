@@ -24,10 +24,11 @@ Route::middleware(['access.security', 'cors'])->prefix('v1')->group(function(){
     Route::get('ad-manage/list-users', [ActiveDirectoryController::class, 'listAllUsers']);
     Route::get('ad-manage/get-groups', [ActiveDirectoryController::class, 'getGroups']);
     Route::get('ad-manage/get-members-group', [ActiveDirectoryController::class, 'getMembersGroup']);
-    Route::get('ad-manage/reset-password/get-user-by-cpf', [ResetPasswordController::class, 'getUserByCpf']);
+    Route::get('ad-manage/reset-password/get-user-by-cpf', [SendTokenResetPasswordController::class, 'getUserByCpf']);
     Route::post('ad-manage/reset-password/send-token', [SendTokenResetPasswordController::class, 'sendToken']);
     Route::post('ad-manage/reset-password/validate-token', [SendTokenResetPasswordController::class, 'validateToken']);
-    Route::patch('ad-manage/change-password/', [SendTokenResetPasswordController::class, 'changePassword']);
+    Route::patch('ad-manage/change-password/', [SendTokenResetPasswordController::class, 'changePasswordPublic']);
+    Route::patch('ad-manage/change-password/admin', [SendTokenResetPasswordController::class, 'changePasswordAdmin']);
 });
 // Route::prefix('v1')->middleware('jwt.auth')->group(function(){
 //     Route::get('ad-manage/me', [LoginRequest::class, "me"]);

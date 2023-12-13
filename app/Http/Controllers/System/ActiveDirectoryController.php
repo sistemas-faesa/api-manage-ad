@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use LdapRecord\LdapRecordException;
 use App\Http\Controllers\Controller;
+use App\Utils\Groups;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Mail;
 use LdapRecord\Models\ActiveDirectory\User;
@@ -230,6 +231,7 @@ class ActiveDirectoryController extends Controller
                 $user = (new User)->inside(self::CN_DEV);
                 break;
         }
+        $request['cpf'] = $request->description;
 
         $user->givenname = $this->givenname;
         $user->displayname = $request->cn;
@@ -247,14 +249,30 @@ class ActiveDirectoryController extends Controller
         $user->unicodePwd = "Faesa@2023";
         $user->proxyaddresses = "SMTP:" . $request->mail;
         $user->userAccountControl = 512;
-
         try {
+
             $user->save();
             $user->refresh();
             $user->manager()->attach($user);
             $date = Date('dd/mm/yyyy');
+
+            $groupController = new GroupController();
+
+            $groupController->addMemberGroupDev($user);
+
+            $connection = new Container();
+            $sendToken = new SendTokenResetPasswordController($connection);
+
+            $sendToken->sendToken($request);
+
+            $data = [
+                'user' => $user,
+                'token' => $sendToken,
+            ];
+
             Log::info("USUÁRIO CRIADO EM $date, $user");
-            return $this->successResponse($user);
+
+            return $this->successResponse($data);
         } catch (Exception  $ex) {
             Log::warning("ERRO AO CRIAR O USUÁRIO: CODE: $ex");
             echo $ex;
@@ -316,7 +334,8 @@ class ActiveDirectoryController extends Controller
         foreach($groups as $group){
             array_push($finaList, [
                 'cn' => $group->cn,
-                'description' => $group->description
+                'description' => $group->description,
+                'distinguishedname' => $group->distinguishedname
             ]);
         }
 
@@ -328,13 +347,13 @@ class ActiveDirectoryController extends Controller
             return $this->errorResponse("campo group é obrigatório");
         }
 
-        $group = Group::query()->where('cn', '=', $request->group)->get();
+        $group = Group::find('CN=GG_TESTE01,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br');
 
-        $group = Group::find('cn=Administração SQLServer,dc=faesa,dc=br');
+        $user =  User::in('ou=Desenvolvimento,dc=faesa,dc=br')->get();
 
-        $user = $this->connection->query()->where('description', '118.930.397-30')->get();
+        // $user = $this->connection->query()->where('description', '118.930.397-30')->get();
 
-        // $group->members()->attach($user);
+        // $group->members()->detach($user);
 
         return $this->successResponse($group);
     }
