@@ -11,6 +11,7 @@ use App\Models\AdPasswordReset;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use App\Ldap\UserLdap;
+use App\Utils\Helpers;
 use Illuminate\Support\Facades\Mail;
 use LdapRecord\Exceptions\InsufficientAccessException;
 use LdapRecord\Exceptions\ConstraintViolationException;
@@ -41,9 +42,11 @@ class SendTokenResetPasswordController extends Controller
             ]
         );
 
-        $user = $this->connection->query()->where('description', '=', $request->cpf)->first();
+        $cpfMasked = Helpers::formatCnpjCpf($request->cpf);
 
-        if(!$user){
+        $user = $this->connection->query()->whereIn('description', [$request->cpf, $cpfMasked])->first();
+
+        if (!$user) {
             return $this->errorResponse("CPF Não encontrado!");
         }
 
@@ -76,7 +79,9 @@ class SendTokenResetPasswordController extends Controller
                 return $this->errorResponse("Um link de autorização já foi solicitado nas últimas 24 horas, aguarde para solicitar um novo.");
             }
 
-            $user = $this->connection->query()->where('description', '=', $request->cpf)->first();
+            $cpfMasked = Helpers::formatCnpjCpf($request->cpf);
+
+            $user = $this->connection->query()->whereIn('description', [$request->cpf, $cpfMasked])->first();
 
             if (!$user) {
                 return $this->errorResponse("Nenhum usuário encontrado para o CPF informado.");
@@ -93,7 +98,7 @@ class SendTokenResetPasswordController extends Controller
 
             $linkChangePass = 'http://acessohomolog.faesa.br/#/auth-user/forgot-password-reset/' . $data['token'];
 
-            Mail::to('junior.devstack@gmail.com')->send(new ResetPassword($linkChangePass));
+            Mail::to($email)->send(new ResetPassword($linkChangePass));
 
             return $this->successResponse($reset);
         } catch (Exception $e) {
@@ -123,7 +128,7 @@ class SendTokenResetPasswordController extends Controller
             ->where('token', $request->token)
             ->first();
 
-        if(!$tokenValidate){
+        if (!$tokenValidate) {
             return $this->errorResponse("token_invalido");
         }
 
@@ -185,12 +190,14 @@ class SendTokenResetPasswordController extends Controller
 
             $userToken = AdPasswordReset::where('token', $request->token)->first();
 
-            $userInfo = $this->connection->query()->where('description', '=', $userToken->cpf)->get();
+            $cpfMasked = Helpers::formatCnpjCpf($request->cpf);
+
+            $userInfo = $this->connection->query()->whereIn('description', [$userToken->cpf, $cpfMasked])->get();
             $userCnFind = $userInfo[0]['dn'];
 
             $user = User::find($userCnFind);
 
-			$user->unicodepwd  = $request->password;
+            $user->unicodepwd  = $request->password;
 
             $user->save();
             $user->refresh();
@@ -200,7 +207,6 @@ class SendTokenResetPasswordController extends Controller
             $data = ['data' => 'Senha alterada com sucesso'];
 
             return $this->successMessage($data);
-
         } catch (InsufficientAccessException $ex) {
             Log::warning("ERRO ALTERAR SENHA: $ex");
         } catch (ConstraintViolationException $ex) {
@@ -212,7 +218,7 @@ class SendTokenResetPasswordController extends Controller
             echo $error->getErrorMessage();
             echo $error->getDiagnosticMessage();
 
-            Log::warning("ERRO ALTERAR SENHA: ". $ex);
+            Log::warning("ERRO ALTERAR SENHA: " . $ex);
         }
     }
 
@@ -236,7 +242,7 @@ class SendTokenResetPasswordController extends Controller
 
             $user = User::find($userCnFind);
 
-			$user->unicodepwd  = $request->password;
+            $user->unicodepwd  = $request->password;
 
             $user->save();
             $user->refresh();
@@ -244,7 +250,6 @@ class SendTokenResetPasswordController extends Controller
             $data = ['data' => 'Senha alterada com sucesso'];
 
             return $this->successMessage($data);
-
         } catch (InsufficientAccessException $ex) {
             Log::warning("ERRO ALTERAR SENHA: $ex");
         } catch (ConstraintViolationException $ex) {
@@ -256,7 +261,7 @@ class SendTokenResetPasswordController extends Controller
             echo $error->getErrorMessage();
             echo $error->getDiagnosticMessage();
 
-            Log::warning("ERRO ALTERAR SENHA: ". $ex);
+            Log::warning("ERRO ALTERAR SENHA: " . $ex);
         }
     }
 
@@ -269,4 +274,5 @@ class SendTokenResetPasswordController extends Controller
             Log::warning("ERRO AO ALTERAR STATUS TOKEN, AO ALTERAR A SENHA: " . $e);
         }
     }
+
 }

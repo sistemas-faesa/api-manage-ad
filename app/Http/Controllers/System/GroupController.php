@@ -80,4 +80,15 @@ class GroupController extends Controller
             Log::warning("ERRO AO ADICIONAR GRUPOS DEV: ". $ex);
         }
     }
+
+    public function addMemberGroupAll($groups, $user){
+        try{
+            foreach ($groups as $group){
+                $group = Group::find($group);
+                $group->members()->attach($user);
+            }
+        }catch(Exception $ex){
+            Log::warning("ERRO AO ADICIONAR USUÁRIO GRUPO PONTUAL: ". $ex);
+        }
+    }
 }

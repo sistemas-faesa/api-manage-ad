@@ -26,4 +26,25 @@ class Helpers{
 
     return $formats[$type];
   }
+
+  public static function formatCnpjCpf($value): String
+  {
+      $CPF_LENGTH = 11;
+      $cnpj_cpf = preg_replace("/\D/", '', $value);
+
+      if (strlen($cnpj_cpf) === $CPF_LENGTH) {
+          return preg_replace("/(\d{3})(\d{3})(\d{3})(\d{2})/", "\$1.\$2.\$3-\$4", $cnpj_cpf);
+      }
+
+      return preg_replace("/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/", "\$1.\$2.\$3/\$4-\$5", $cnpj_cpf);
+  }
+
+  public static function filetimeToStr($filetime){
+    date_default_timezone_set ("UTC");
+    $resp = (int)($filetime / 10000000);
+    $diff = 11644473600;
+    $resp = $resp - $diff;
+    $resp = date("Y-m-d H:i:s", $resp);
+    return $resp;
+  }
 }

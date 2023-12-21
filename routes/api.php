@@ -20,10 +20,15 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['access.security', 'cors'])->prefix('v1')->group(function(){
     Route::post('ad-manage/auth', [LoginRequest::class, 'authenticate']);
+
     Route::post('ad-manage/create-user', [ActiveDirectoryController::class, 'validateSaveUser']);
     Route::get('ad-manage/list-users', [ActiveDirectoryController::class, 'listAllUsers']);
     Route::get('ad-manage/get-groups', [ActiveDirectoryController::class, 'getGroups']);
     Route::get('ad-manage/get-members-group', [ActiveDirectoryController::class, 'getMembersGroup']);
+    Route::get('ad-manage/get-user-by-cpf/admin', [ActiveDirectoryController::class, 'getUserByCpf']);
+    Route::patch('ad-manage/change-user/admin', [ActiveDirectoryController::class, 'changeUser']);
+    Route::get('ad-manage/search-user/admin', [ActiveDirectoryController::class, 'searchUser']);
+
     Route::get('ad-manage/reset-password/get-user-by-cpf', [SendTokenResetPasswordController::class, 'getUserByCpf']);
     Route::post('ad-manage/reset-password/send-token', [SendTokenResetPasswordController::class, 'sendToken']);
     Route::post('ad-manage/reset-password/validate-token', [SendTokenResetPasswordController::class, 'validateToken']);
