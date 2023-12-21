@@ -241,7 +241,6 @@ class ActiveDirectoryController extends Controller
         $user->proxyaddresses = "SMTP:" . $request->mail;
         $user->userAccountControl = 512;
         try {
-
             $user->save();
             $user->refresh();
             $user->manager()->attach($user);
