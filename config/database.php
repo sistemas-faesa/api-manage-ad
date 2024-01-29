@@ -93,6 +93,21 @@ return [
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
         ],
 
+		'sqlsrv_lyceum' => [
+            'driver' => 'sqlsrv',
+            'url' => env('DATABASE_URL_SECOND'),
+            'host' => env('DB_HOST_SECOND', 'localhost'),
+            'port' => env('DB_PORT_SECOND', '1433'),
+            'database' => env('DB_DATABASE_SECOND', 'forge'),
+            'username' => env('DB_USERNAME_SECOND', 'forge'),
+            'password' => env('DB_PASSWORD_SECOND', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'encrypt' => env('DB_ENCRYPT', 'yes'),
+            'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+        ],
+
     ],
 
     /*

@@ -91,9 +91,13 @@ class GroupController extends Controller
 	public function addMemberGroupAll($groups, $user)
 	{
 		try {
-			foreach ($groups as $group) {
-				$group = Group::find($group);
-				$group->members()->attach($user);
+			if (isset($groups) && is_array($groups) && !empty($groups)) {
+				foreach ($groups as $group) {
+					$group = Group::find($group);
+					$group->members()->attach($user);
+				}
+			}else{
+				Log::warning("ERRO AO ADICIONAR USUÁRIO GRUPO PONTUAL: O array de grupos está vazio ou não está definido.");
 			}
 		} catch (Exception $ex) {
 			Log::warning("ERRO AO ADICIONAR USUÁRIO GRUPO PONTUAL: " . $ex);
@@ -104,11 +108,15 @@ class GroupController extends Controller
 	{
 		try {
 			$groups = $user['memberof'];
-			foreach ($groups as $group) {
-				$user->groups()->detach($group);
+
+			if (isset($groups) && is_array($groups) && !empty($groups)) {
+				foreach ($groups as $group) {
+					$user->groups()->detach($group);
+				}
 			}
+			
 		} catch (Exception $ex) {
-			Log::warning("ERRO AO REMOVER USUÁRIO GRUPO PONTUAL: " . $ex);
+			 Log::warning("ERRO AO REMOVER USUÁRIO DE GRUPOS: " . $ex->getMessage());
 		}
 	}
 

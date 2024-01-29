@@ -23,6 +23,8 @@ class LoginRequest extends FormRequest
 
     use ApiResponser;
 
+	CONST CN_LOGIN = 'OU=NTI,OU=ADMINISTRATIVO,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -43,6 +45,13 @@ class LoginRequest extends FormRequest
             'password' => $this->password,
         ];
 
+		$checkOuLogin = $this->checkOuLogin($this->username);
+
+		if(!$checkOuLogin){
+			RateLimiter::hit($this->throttleKey());
+            return $this->errorResponse(['error' => 'Usuário não possui permissão para realizar o login']);
+		}
+
         if (!auth('api')->attempt($credentials)) {
             RateLimiter::hit($this->throttleKey());
             return $this->errorResponse(['fail' => 'unauthenticated']);
@@ -58,6 +67,13 @@ class LoginRequest extends FormRequest
         }
 
     }
+
+	private function checkOuLogin($samaccountname){
+		$connection = Container::getDefaultConnection();
+		$check = $connection->query()->in(self::CN_LOGIN)->where('samaccountname', '=', $samaccountname)->get();
+		dd($check);
+		return $check;
+	}
 
     /**
      * Ensure the login request is not rate limited.

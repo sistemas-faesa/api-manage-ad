@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers\System;
 
-use App\Http\Controllers\Auth\SendTokenResetPasswordController;
 use Exception;
 use App\Utils\Helpers;
 use LdapRecord\Container;
+use Illuminate\Support\Str;
 use App\Traits\ApiResponser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
-use LdapRecord\Models\ActiveDirectory\User;
-use LdapRecord\Models\ActiveDirectory\Group;
-use Illuminate\Support\Str;
-
 use function PHPUnit\Framework\isNull;
+use LdapRecord\Models\ActiveDirectory\User;
+use LdapRecord\Models\Attributes\Timestamp;
+
+use LdapRecord\Models\ActiveDirectory\Group;
+use App\Http\Controllers\Auth\SendTokenResetPasswordController;
 
 class ActiveDirectoryController extends Controller
 {
@@ -30,9 +31,9 @@ class ActiveDirectoryController extends Controller
 	const CN_FUNCIONARIOS = 'OU=ADMINISTRATIVO,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
 	const CN_PROFESSORES = 'OU=DOCENTE,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
 
-	public function __construct(Container $connection)
+	public function __construct()
 	{
-		$this->connection = $connection::getConnection('default');
+		$this->connection = Container::getDefaultConnection();
 		ini_set('memory_limit', '-1');
 	}
 
@@ -87,7 +88,11 @@ class ActiveDirectoryController extends Controller
 			return $msgError = "Campo cn é obrigatório o preenchimento";
 		}
 
-		if (!strstr($request->cn, " ")) {
+		if (strpos($request->cn, ' ') === false) {
+			return $msgError = "Nome com Formato incorreto!";
+		}
+
+		if (!preg_match('/^[\p{L}\s]+$/u', $request->cn)) {
 			return $msgError = "Nome com Formato incorreto!";
 		}
 
@@ -102,7 +107,7 @@ class ActiveDirectoryController extends Controller
 		} elseif (!preg_match(Helpers::patternFormat('patternPhysicalDeliveryOfficeName'), $request->physicaldeliveryofficename)) {
 			return $msgError = "Formato physicaldeliveryofficename está incorreto";
 		}
-
+		
 		if (!filter_var($request->mail, FILTER_VALIDATE_EMAIL)) {
 			return $msgError = "E-mail inválido";
 		}
@@ -156,9 +161,10 @@ class ActiveDirectoryController extends Controller
 
 			$secondName = strval($namesDivided[$key]);
 			// Aplicar o segundo nome ao SN.
-			if ($key == 2) {
+			if ($key == 1) {
 				$this->sn = ucfirst($secondName);
 			}
+
 			$this->samaccountname = $firstName . '.' . $secondName . strval($this->complementNumericSmaAccount == 0 ? '' : $this->complementNumericSmaAccount);
 
 			if ($this->checkIfUserExists('account', $request)) {
@@ -232,6 +238,7 @@ class ActiveDirectoryController extends Controller
 		$user->description = $request->description;
 		$user->physicaldeliveryofficename = $request->physicaldeliveryofficename;
 		$user->mail = $request->mail;
+		$user->pager = $request->pager;
 		$user->samaccountname = $this->samaccountname;
 		$user->scriptpath = $request->scriptpath;
 		$user->ipphone = $request->ipphone;
@@ -241,6 +248,7 @@ class ActiveDirectoryController extends Controller
 		$user->unicodePwd = "Faesa@2023";
 		$user->proxyaddresses = "SMTP:" . $request->mail;
 		$user->userAccountControl = 512;
+
 		try {
 			$user->save();
 			$user->refresh();
@@ -305,6 +313,7 @@ class ActiveDirectoryController extends Controller
 		$cpfMasked = Helpers::formatCnpjCpf($request->description);
 
 		$userInfo = $this->connection->query()->whereIn('description', [$request->description, $cpfMasked])->get();
+
 		$userCnFind = $userInfo[0]['dn'];
 
 		$user = User::find($userCnFind);
@@ -313,8 +322,14 @@ class ActiveDirectoryController extends Controller
 			$this->errorResponse('Nenhum usuário encontrado para o CPF informado!');
 		}
 
+		if ($request->accountexpires == 0) {
+			$accountexpires = Timestamp::WINDOWS_INT_MAX;
+		} else {
+			$accountexpires = $request->accountexpires;
+		}
+
 		$user->givenname = $request->givenname;
-		$user->displayname = $request->displayname;
+		// $user->displayname = $request->displayname;
 		$user->serialNumber = $request->serialNumber;
 		$user->pager = $request->pager;
 		$user->dateofBirth  = $request->dateofBirth;
@@ -326,12 +341,12 @@ class ActiveDirectoryController extends Controller
 		$user->title = $request->title;
 		$user->department = $request->department;
 		$user->company = $request->company;
-		$user->userAccountControl = $request->userAccountControl ? 512 : 2;
-		$accountexpires = strtotime($request->accountexpires);
+		$user->userAccountControl = $request->userAccountControl ? 512 : 512 + 2;
 		$user->accountexpires = $accountexpires;
+
 		try {
 			$user->save();
-			$user->refresh();
+			// $user->refresh();
 
 			$date = Date('d/m/y');
 
@@ -344,7 +359,7 @@ class ActiveDirectoryController extends Controller
 			}
 
 			$data = [
-				'user' => $user,
+				'info' => $user,
 			];
 
 			Log::info("USUÁRIO ALTERADO EM $date, $user");
@@ -352,7 +367,7 @@ class ActiveDirectoryController extends Controller
 			return $this->successResponse($data);
 		} catch (Exception  $ex) {
 			Log::warning("ERRO AO ALTERAR O USUÁRIO: CODE: $ex");
-			echo $ex;
+			return $this->errorResponse($ex->getMessage());
 		}
 	}
 }

@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['access.security', 'cors'])->prefix('v1')->group(function(){
+Route::middleware(['access.security'])->prefix('v1')->group(function(){
     Route::post('ad-manage/auth', [LoginRequest::class, 'authenticate']);
 
     Route::patch('ad-manage/change-user/admin', [ActiveDirectoryController::class, 'changeUser']);
