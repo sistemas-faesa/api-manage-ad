@@ -23,7 +23,7 @@ class LoginRequest extends FormRequest
 
     use ApiResponser;
 
-	CONST CN_LOGIN = 'OU=NTI,OU=ADMINISTRATIVO,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
+	CONST CN_LOGIN = 'OU=NUCLEO DE TECNOLOGIA E INFORMACAO,OU=ADMINISTRATIVO,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
 
     /**
      * Determine if the user is authorized to make this request.
@@ -71,7 +71,7 @@ class LoginRequest extends FormRequest
 	private function checkOuLogin($samaccountname){
 		$connection = Container::getDefaultConnection();
 		$check = $connection->query()->in(self::CN_LOGIN)->where('samaccountname', '=', $samaccountname)->get();
-		dd($check);
+		
 		return $check;
 	}
 

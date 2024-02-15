@@ -199,6 +199,10 @@ class SearchController extends Controller
 
 			$userInfo = $this->connection->query()->whereIn('description', [$cpf, $cpfMasked])->get();
 			
+			if(count($userInfo) == 0){
+				return $this->errorResponse("CPF Não encontrado!");
+			}
+
 			$userCnFind = $userInfo[0]['dn'];
 			
 			$user = User::find($userCnFind);

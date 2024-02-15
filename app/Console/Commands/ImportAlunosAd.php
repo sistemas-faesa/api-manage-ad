@@ -44,15 +44,16 @@ class ImportAlunosAd extends Command
 	public function handle()
 	{
 		try {
-			$alunos = DB::connection('sqlsrv_lyceum')->select("select * from VW_FAESA_ALUNOS_INTEGRACAO_AD vw
-			where not EXISTS (select * from LYCEUM_INTEGRACAO.dbo.log_users_ads log_mig where log_mig.cpf = vw.cpf)");
+			$alunos = DB::connection('sqlsrv_lyceum')->select("select top 1 * from VW_FAESA_ALUNOS_INTEGRACAO_AD vw
+			where not EXISTS (select * from LYCEUM_INTEGRACAO.dbo.log_users_ads log_mig where log_mig.cpf = vw.cpf and status in ('existente', 'exito'))");
 
 			if (count($alunos) > 0) {
 				foreach ($alunos as $aluno) {
+					
 					$activeDirectory = new ActiveDirectoryController($this->connection);
 
 					$importAluno = $this->checkImportAd($aluno->cpf);
-
+					
 					if (!$importAluno) {
 						Log::warning("ALUNO JÁ MIGRADO ANTERIORMENTE: " . $aluno->cpf);
 						continue;
@@ -85,26 +86,28 @@ class ImportAlunosAd extends Command
 							'nome' => $aluno->nome_exibicao,
 							'cpf' =>  $aluno->cpf,
 							'matricula' => $aluno->matricula,
-							'login' => $result['data']['samaccountname'],
+							'login' => '',
 							'obs' => $result['error'],
 							'status' => 'erro',
 						];
 
 						$this->registerLogDb($data);
+						continue;
 					}
 
 					if ($response->status() == 200) {
-
+						
 						$data = [
-							'nome' => $result['data']['displayname'],
+							'nome' => $aluno->nome_exibicao,
 							'cpf' =>  $aluno->cpf,
-							'matricula' => $result['data']['physicaldeliveryofficename'],
-							'login' => $result['data']['samaccountname'],
+							'matricula' => $aluno->matricula,
+							'login' => $result['data']['user']['samaccountname'][0],
 							'obs' => 'Usuário criado com sucesso no AD',
 							'status' => 'exito',
 						];
 
 						$this->registerLogDb($data);
+						continue;
 					}
 				}
 
@@ -129,14 +132,8 @@ class ImportAlunosAd extends Command
 		try {
 			$check = true;
 
-			$request = new Request(
-				[
-					'cpf' => $cpf,
-				]
-			);
-
+			$request = new Request(['cpf' => $cpf]);
 			$resultSearch = $searchController->getUserByCpf($request);
-
 			$content = $resultSearch->content();
 			$result = json_decode($content, true);
 
@@ -147,17 +144,17 @@ class ImportAlunosAd extends Command
 						'cpf' => $cpf,
 						'matricula' => $result['data']['physicaldeliveryofficename'],
 						'login' => $result['data']['samaccountname'],
-						'obs' => 'Aluno já possui registro no AD, busca realizado por CPF.',
+						'obs' => 'Aluno já possui registro no AD, busca realizada por CPF.',
 						'status' => 'existente',
 					];
 
 					$this->registerLogDb($data);
 
 					return false;
-				} else {
-					return $check;
 				}
 			}
+
+			return $check;
 		} catch (Exception $e) {
 			Log::warning("ERRO NO PROCESSO DE CHECKAGEM DE ALUNO MIGRADO NO AD: " . $e->getMessage());
 			Log::warning("Tipo de Exceção: " . get_class($e));
@@ -167,8 +164,9 @@ class ImportAlunosAd extends Command
 
 	private function registerLogDb($data)
 	{
+		
 		try {
-			LogUsersAd::create([
+			$log = LogUsersAd::create([
 				'nome' => $data['nome'],
 				'cpf' => $data['cpf'],
 				'matricula' => $data['matricula'],
@@ -177,6 +175,9 @@ class ImportAlunosAd extends Command
 				'obs' => $data['obs'],
 				'status' => $data['status']
 			]);
+			
+			return $log;
+			
 		} catch (Exception $e) {
 			Log::warning("ERRO NO PROCESSO DE CHECKAGEM DE ALUNO MIGRADO NO AD: " . $e->getMessage());
 			Log::warning("Tipo de Exceção: " . get_class($e));

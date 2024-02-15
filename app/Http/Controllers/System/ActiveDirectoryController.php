@@ -76,10 +76,11 @@ class ActiveDirectoryController extends Controller
 			if (!$request->dateofBirth) {
 				return $msgError = "Campo dateofBirth é obrigatório o preenchimento para o usuário Funcionário";
 			}
-
-			if (!$request->serialNumber) {
-				return $msgError = "Campo serialNumber é obrigatório o preenchimento";
-			} elseif (!preg_match(Helpers::patternFormat('patternSerialNumber'), $request->serialNumber)) {
+			// if (!$request->serialNumber) {
+			// 	return $msgError = "Campo serialNumber é obrigatório o preenchimento";
+			// } else
+			
+			if (!preg_match(Helpers::patternFormat('patternSerialNumber'), $request->serialNumber)) {
 				return $msgError = "Formato serialNumber está incorreto";
 			}
 		}
@@ -87,6 +88,10 @@ class ActiveDirectoryController extends Controller
 		if (!$request->cn) {
 			return $msgError = "Campo cn é obrigatório o preenchimento";
 		}
+
+		// if ($request->userType != 'aluno' && !$request->manager) {
+		// 	return $msgError = "Campo manager é obrigatório o preenchimento";
+		// }
 
 		if (strpos($request->cn, ' ') === false) {
 			return $msgError = "Nome com Formato incorreto!";
@@ -102,9 +107,11 @@ class ActiveDirectoryController extends Controller
 			return $msgError = "Formato description está incorreto";
 		}
 
-		if (!$request->physicaldeliveryofficename) {
-			return $msgError = "Campo physicaldeliveryofficename é obrigatório o preenchimento";
-		} elseif (!preg_match(Helpers::patternFormat('patternPhysicalDeliveryOfficeName'), $request->physicaldeliveryofficename)) {
+		// if (!$request->physicaldeliveryofficename) {
+		// 	return $msgError = "Campo physicaldeliveryofficename é obrigatório o preenchimento";
+		// } else
+		
+		if (!preg_match(Helpers::patternFormat('patternPhysicalDeliveryOfficeName'), $request->physicaldeliveryofficename)) {
 			return $msgError = "Formato physicaldeliveryofficename está incorreto";
 		}
 		
@@ -131,16 +138,17 @@ class ActiveDirectoryController extends Controller
 		}
 
 		if (!$request->department) {
-			return $msgError = "Campo department é obrigatório o preenchimento";
+			return $msgError = "Campo departament é obrigatório o preenchimento";
 		}
 
 		if (!$request->userType) {
 			return $msgError = "Campo userType é obrigatório o preenchimento";
 		}
 
-		if (!$request->ipphone) {
-			return $msgError = "Campo ipphone é obrigatório o preenchimento";
-		} elseif (!preg_match(Helpers::patternFormat('patternPhoneDigit'), $request->ipphone)) {
+		// if (!$request->ipphone) {
+		// 	return $msgError = "Campo ipphone é obrigatório o preenchimento";
+		// } else
+		if (!preg_match(Helpers::patternFormat('patternPhoneDigit'), $request->ipphone)) {
 			return $msgError = "Formato ipphone está incorreto";
 		}
 
@@ -148,7 +156,7 @@ class ActiveDirectoryController extends Controller
 	}
 
 	public function createSamAccountNameGivenNameSn(Request $request)
-	{
+	{		
 		$name = Helpers::clearName($request->cn);
 		$namesDivided = explode(" ", $name);
 		$firstName = strval($namesDivided[0]);
@@ -169,7 +177,7 @@ class ActiveDirectoryController extends Controller
 
 			if ($this->checkIfUserExists('account', $request)) {
 				if (count($namesDivided) - 1 == $key) {
-					$this->complementNumericSmaAccount = random_int(1, 99);
+					$this->complementNumericSmaAccount ++;
 					$this->samaccountname = $firstName . '.' . $secondName . strval($this->complementNumericSmaAccount);
 				}
 				continue;
@@ -231,9 +239,9 @@ class ActiveDirectoryController extends Controller
 		}
 		$request['cpf'] = $request->description;
 
-		$user->givenname = $this->givenname;
+		$user->givenname = ucfirst($this->givenname);
 		$user->displayname = $request->cn;
-		$user->cn = $request->cn;
+		$user->cn = $this->samaccountname;
 		$user->sn = $this->sn;
 		$user->description = $request->description;
 		$user->physicaldeliveryofficename = $request->physicaldeliveryofficename;
@@ -246,13 +254,21 @@ class ActiveDirectoryController extends Controller
 		$user->department = $request->department;
 		$user->company = $request->company;
 		$user->unicodePwd = "Faesa@2023";
-		$user->proxyaddresses = "SMTP:" . $request->mail;
+		$user->proxyaddresses = "SMTP:" . $this->samaccountname.'@aluno.faesa.br';
 		$user->userAccountControl = 512;
 
-		try {
+		try {			
+			if($request->userType != 'aluno'){
+				$user->manager = $request->manager;
+			}
+
+			if($request->userType == 'aluno'){
+				$user->userPrincipalName = $this->samaccountname.'@aluno.faesa.br';
+			}	
+
 			$user->save();
-			$user->refresh();
-			$user->manager()->attach($user);
+			$user->refresh();			
+
 			$date = Date('d/m/y');
 
 			$groupController = new GroupController();
@@ -279,6 +295,13 @@ class ActiveDirectoryController extends Controller
 
 			$connection = new Container();
 			$sendToken = new SendTokenResetPasswordController($connection);
+			 
+			$dataEmail['cpf'] = $request->cpf;
+			$dataEmail['nome'] = $request->cn;
+			$dataEmail['login'] =  $this->samaccountname;
+			$dataEmail['created_at'] = now();
+			$dataEmail['token'] = md5(uniqid(mt_rand(), true));
+			$dataEmail['email'] = $request->mail;	
 
 			$sendToken->sendToken($request);
 
