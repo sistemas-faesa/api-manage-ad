@@ -102,7 +102,7 @@ class SendTokenResetPasswordController extends Controller
 			$linkChangePass = 'http://acessohomolog.faesa.br/#/auth-user/forgot-password-reset/' . $data['token'];
 
 			$data['link'] = $linkChangePass;
-
+			
 			Mail::to('junior.devstack@gmail.com')->send(new ResetPassword($data));
 
 			return $this->successResponse($reset);

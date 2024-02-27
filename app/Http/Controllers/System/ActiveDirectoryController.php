@@ -4,16 +4,19 @@ namespace App\Http\Controllers\System;
 
 use Exception;
 use App\Utils\Helpers;
+use App\Models\LyPessoa;
+use App\Models\LyDocente;
 use LdapRecord\Container;
 use Illuminate\Support\Str;
 use App\Traits\ApiResponser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Hash;
+
 use function PHPUnit\Framework\isNull;
 use LdapRecord\Models\ActiveDirectory\User;
 use LdapRecord\Models\Attributes\Timestamp;
-
 use LdapRecord\Models\ActiveDirectory\Group;
 use App\Http\Controllers\Auth\SendTokenResetPasswordController;
 
@@ -23,6 +26,7 @@ class ActiveDirectoryController extends Controller
 
 	private $connection;
 	private $samaccountname;
+	private $password;
 	private $givenname;
 	private $sn;
 	private $complementNumericSmaAccount = 0;
@@ -79,7 +83,7 @@ class ActiveDirectoryController extends Controller
 			// if (!$request->serialNumber) {
 			// 	return $msgError = "Campo serialNumber é obrigatório o preenchimento";
 			// } else
-			
+
 			if (!preg_match(Helpers::patternFormat('patternSerialNumber'), $request->serialNumber)) {
 				return $msgError = "Formato serialNumber está incorreto";
 			}
@@ -110,11 +114,11 @@ class ActiveDirectoryController extends Controller
 		// if (!$request->physicaldeliveryofficename) {
 		// 	return $msgError = "Campo physicaldeliveryofficename é obrigatório o preenchimento";
 		// } else
-		
+
 		if (!preg_match(Helpers::patternFormat('patternPhysicalDeliveryOfficeName'), $request->physicaldeliveryofficename)) {
 			return $msgError = "Formato physicaldeliveryofficename está incorreto";
 		}
-		
+
 		if (!filter_var($request->mail, FILTER_VALIDATE_EMAIL)) {
 			return $msgError = "E-mail inválido";
 		}
@@ -156,10 +160,11 @@ class ActiveDirectoryController extends Controller
 	}
 
 	public function createSamAccountNameGivenNameSn(Request $request)
-	{		
+	{
 		$name = Helpers::clearName($request->cn);
 		$namesDivided = explode(" ", $name);
 		$firstName = strval($namesDivided[0]);
+		$largerName = false;
 		$this->givenname = $firstName;
 
 		foreach ($namesDivided as $key => $name) {
@@ -175,12 +180,30 @@ class ActiveDirectoryController extends Controller
 
 			$this->samaccountname = $firstName . '.' . $secondName . strval($this->complementNumericSmaAccount == 0 ? '' : $this->complementNumericSmaAccount);
 
-			if ($this->checkIfUserExists('account', $request)) {
-				if (count($namesDivided) - 1 == $key) {
-					$this->complementNumericSmaAccount ++;
-					$this->samaccountname = $firstName . '.' . $secondName . strval($this->complementNumericSmaAccount);
+			if (!$largerName) {
+				if ($this->checkIfUserExists('account', $request)) {
+					if (count($namesDivided) - 1 == $key) {
+						while ($this->checkIfUserExists('account', $request)) {
+							$this->complementNumericSmaAccount++;
+							$this->samaccountname = $firstName . '.' . $secondName . strval($this->complementNumericSmaAccount);
+						}
+					}
+					continue;
 				}
-				continue;
+			}
+			// Checar o tamanho do login, se for maior do que 20, reduzir o segundo nome para a primeira letra e checar a existência do mesmo se já está registrado.
+			if (strlen($this->samaccountname) > 20 || $largerName) {
+				$largerName = true; // <== Necessário para continuar a validação da nova estrutura de login.
+				$secondName = $namesDivided[1];
+
+				$this->samaccountname = $firstName . '.' . substr($secondName, 0, 1) . strval($this->complementNumericSmaAccount == 0 ? '' : $this->complementNumericSmaAccount);
+
+				while ($this->checkIfUserExists('account', $request)) {
+					$this->complementNumericSmaAccount++;
+					$this->samaccountname = $firstName . '.' . substr($secondName, 0, 1) . strval($this->complementNumericSmaAccount);
+					// continue;
+				}
+
 			}
 			break;
 		}
@@ -241,7 +264,7 @@ class ActiveDirectoryController extends Controller
 
 		$user->givenname = ucfirst($this->givenname);
 		$user->displayname = $request->cn;
-		$user->cn = $this->samaccountname;
+		$user->cn = $request->cn;
 		$user->sn = $this->sn;
 		$user->description = $request->description;
 		$user->physicaldeliveryofficename = $request->physicaldeliveryofficename;
@@ -254,20 +277,20 @@ class ActiveDirectoryController extends Controller
 		$user->department = $request->department;
 		$user->company = $request->company;
 		$user->unicodePwd = "Faesa@2023";
-		$user->proxyaddresses = "SMTP:" . $this->samaccountname.'@aluno.faesa.br';
+		$user->proxyaddresses = "SMTP:" . $this->samaccountname . '@aluno.faesa.br';
 		$user->userAccountControl = 512;
 
-		try {			
-			if($request->userType != 'aluno'){
+		try {
+			if ($request->userType != 'aluno') {
 				$user->manager = $request->manager;
 			}
 
-			if($request->userType == 'aluno'){
-				$user->userPrincipalName = $this->samaccountname.'@aluno.faesa.br';
-			}	
+			if ($request->userType == 'aluno') {
+				$user->userPrincipalName = $this->samaccountname . '@aluno.faesa.br';
+			}
 
 			$user->save();
-			$user->refresh();			
+			$user->refresh();
 
 			$date = Date('d/m/y');
 
@@ -295,19 +318,16 @@ class ActiveDirectoryController extends Controller
 
 			$connection = new Container();
 			$sendToken = new SendTokenResetPasswordController($connection);
-			 
-			$dataEmail['cpf'] = $request->cpf;
-			$dataEmail['nome'] = $request->cn;
-			$dataEmail['login'] =  $this->samaccountname;
-			$dataEmail['created_at'] = now();
-			$dataEmail['token'] = md5(uniqid(mt_rand(), true));
-			$dataEmail['email'] = $request->mail;	
 
 			$sendToken->sendToken($request);
 
+			$this->password = $user->unicodePwd;
+
+			$atualizaDadosLyceum = $this->atualizarDadosLyceum($request);
+
 			$data = [
-				'user' => $user,
-				'token' => $sendToken,
+				'warning' => $atualizaDadosLyceum,
+				'user' => $user
 			];
 
 			Log::info("USUÁRIO CRIADO EM $date, $user");
@@ -316,6 +336,66 @@ class ActiveDirectoryController extends Controller
 		} catch (Exception  $ex) {
 			Log::warning("ERRO AO CRIAR O USUÁRIO: CODE: $ex");
 			echo $ex;
+		}
+	}
+
+	private function atualizarDadosLyceum($request)
+	{
+		try {
+			$cpfMasked = Helpers::formatCnpjCpf($request->description);
+			$cpf = trim(str_replace('-', '', str_replace('.', '', $request->description)));
+			$msgErro = '';
+
+			switch ($request->userType) {
+				case 'aluno':
+					$pessoa = LyPessoa::whereIn('CPF', [$cpf, $cpfMasked])->first();
+
+					if (!$pessoa) {
+						$msgErro = "ERRO AO ATUALIZAR DADOS DO ALUNO NO LYCEUM, DADOS NÃO ENCONTRADO PARA O CPF: " . $request->description;
+						Log::warning($msgErro);
+						return $msgErro;
+					}
+
+					$pessoa->WINUSUARIO = 'FAESA\/' . $this->samaccountname;
+					$pessoa->SENHA_TAC = Hash::make($this->password);
+
+					$pessoa->save();
+
+					break;
+
+				case 'professor':
+					$docente = LyDocente::whereIn('CPF', [$cpf, $cpfMasked])->first();
+					$pessoa = LyPessoa::whereIn('CPF', [$cpf, $cpfMasked])->first();
+
+					if (!$pessoa) {
+						$msgErro = "ERRO AO ATUALIZAR DADOS DO PROFESSOR NO LYCEUM, TABELA LY_PESSOA, DADOS NÃO ENCONTRADO PARA O CPF: " . $request->description;
+						Log::warning($msgErro);
+						return $msgErro;
+					}
+
+					if (!$docente) {
+						$msgErro = "ERRO AO ATUALIZAR DADOS DO PROFESSOR NO LYCEUM, TABELA LY_DOCENTE, DADOS NÃO ENCONTRADO PARA O CPF: " . $request->description;
+						Log::warning($msgErro);
+						return $msgErro;
+					}
+
+					$pessoa->WINUSUARIO = 'FAESA\/' . $this->samaccountname;
+					$pessoa->SENHA_TAC = Hash::make($this->password);
+
+					$docente->WINUSUARIO = 'FAESA\/' . $this->samaccountname;
+					$docente->SENHA_DOL = Hash::make($this->password);
+
+					$pessoa->save();
+
+					$docente->save();
+
+					break;
+			}
+			return $msgErro;
+		} catch (Exception $e) {
+			$msg = "ERRO AO ATUALIZAR DADOS NO LYCEUM: " . $e->getMessage();
+			Log::warning($msg);
+			return $this->errorResponse($msg);
 		}
 	}
 
