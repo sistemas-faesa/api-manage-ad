@@ -12,4 +12,10 @@ class LyDocente extends Model
 	protected $table = 'LY_DOCENTE';
 
 	protected $connection = 'sqlsrv_lyceum';
+
+	public $timestamps = false;
+
+	public $incrementing = false;
+
+	protected $primaryKey = 'CPF';
 }

@@ -22,8 +22,11 @@ class SearchController extends Controller
 	private $connection;
 	const CN_DEV = 'OU=Desenvolvimento,DC=faesa,DC=br';
 	const CN_ALUNOS = 'OU=ATIVOS,OU=ALUNOS,OU=FAESA,DC=faesa,DC=br';
-	const CN_FUNCIONARIOS = 'OU=ADMINISTRATIVO,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
-	const CN_PROFESSORES = 'OU=DOCENTE,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
+	const CN_FUNCIONARIOS = 'OU=Funcionarios_ADM,OU=Faesa,OU=Logins Iniciais,DC=faesa,DC=br';
+	const CN_PROFESSORES = 'OU=Docente,OU=Faesa,OU=Logins Iniciais,DC=faesa,DC=br';
+	// const CN_ALUNOS = 'CN=Alunos,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br';
+	// const CN_FUNCIONARIOS = 'CN=Funcionarios,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=b';
+	// const CN_PROFESSORES = 'CN=Docentes,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br';
 
 	public function __construct()
 	{
@@ -107,6 +110,13 @@ class SearchController extends Controller
 
 			$ouQuery = $this->getOuQuery($listType);
 
+			// $group = Group::find($groupQuery);
+
+			// dd($group->members());
+			// foreach($group->members() as $member){
+			// 	dd($member);
+			// }
+
 			if (!$request->has('search')) {
 				$request['search'] = '?';
 			}
@@ -117,7 +127,7 @@ class SearchController extends Controller
 			$cpf = trim(str_replace('-', '', str_replace('.', '', $request->cpf)));
 
 			$users = $this->connection->query()->in($ouQuery)->whereIn('description', [$cpf, $cpfMasked])->slice($page = $request->page, $perPage = $request->pageSize);
-			
+
 			if ($users->total() == 0) {
 				$users = $this->connection->query()->in($ouQuery)->where('cn', 'contains', $searchValue)->slice($page = $request->page, $perPage = $request->pageSize);
 			}
@@ -133,17 +143,16 @@ class SearchController extends Controller
 			if ($users->total() == 0) {
 				$users = $this->connection->query()->in($ouQuery)->where('physicaldeliveryofficename', 'contains', $searchValue)->slice($page = $request->page, $perPage = $request->pageSize);
 			}
-			
-			if($request['search'] == '?'){
+
+			if ($request['search'] == '?') {
 				if ($users->total() == 0) {
 					$users = $this->connection->query()
-					->select('cn', 'displayname', 'mail', 'description', 'samaccountname', 'dateofBirth', 'serialNumber', 'physicaldeliveryofficename', 'accountexpires')
-					->in($ouQuery)
-					->slice($page = $request->page, $perPage = $request->pageSize);
-					
+						->select('cn', 'displayname', 'mail', 'description', 'samaccountname', 'dateofBirth', 'serialNumber', 'physicaldeliveryofficename', 'accountexpires')
+						->in($ouQuery)
+						->slice($page = $request->page, $perPage = $request->pageSize);
 				}
 			}
-			
+
 			foreach ($users as $user) {
 				array_push($finaList, [
 					'cn' => $user['cn'][0] ?? 'NI',
@@ -198,19 +207,19 @@ class SearchController extends Controller
 			$cpf = trim(str_replace('-', '', str_replace('.', '', $request->cpf)));
 
 			$userInfo = $this->connection->query()->whereIn('description', [$cpf, $cpfMasked])->get();
-			
-			if(count($userInfo) == 0){
+
+			if (count($userInfo) == 0) {
 				return $this->errorResponse("CPF Não encontrado!");
 			}
 
 			$userCnFind = $userInfo[0]['dn'];
-			
+
 			$user = User::find($userCnFind);
-			
+
 			if (!$user) {
 				return $this->errorResponse("CPF Não encontrado!");
 			}
-			
+
 			$data = [
 				'cn' => $user->cn[0] ?? 'NI',
 				'sn' => $user->sn[0] ?? 'NI',
@@ -232,7 +241,7 @@ class SearchController extends Controller
 				'accountexpires' => gettype($user->accountexpires) == 'integer' ? 0 : $user->accountexpires,
 				'groups' => isset($user['memberof']) ? $user->memberof : 'NI',
 			];
-			
+
 			return $this->successResponse($data);
 		} catch (Exception $e) {
 			$this->logError("ERRO AO BUSCAR USUÁRIO POR CPF: $e");

@@ -32,8 +32,8 @@ class ActiveDirectoryController extends Controller
 	private $complementNumericSmaAccount = 0;
 	const CN_DEV = 'OU=Desenvolvimento,DC=faesa,DC=br';
 	const CN_ALUNOS = 'OU=ATIVOS,OU=ALUNOS,OU=FAESA,DC=faesa,DC=br';
-	const CN_FUNCIONARIOS = 'OU=ADMINISTRATIVO,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
-	const CN_PROFESSORES = 'OU=DOCENTE,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
+	const CN_FUNCIONARIOS = 'OU=Funcionarios_ADM,OU=Faesa,OU=Logins Iniciais,DC=faesa,DC=br';
+	const CN_PROFESSORES = 'OU=Docente,OU=Faesa,OU=Logins Iniciais,DC=faesa,DC=br';
 
 	public function __construct()
 	{
@@ -114,23 +114,27 @@ class ActiveDirectoryController extends Controller
 		// if (!$request->physicaldeliveryofficename) {
 		// 	return $msgError = "Campo physicaldeliveryofficename é obrigatório o preenchimento";
 		// } else
-
-		if (!preg_match(Helpers::patternFormat('patternPhysicalDeliveryOfficeName'), $request->physicaldeliveryofficename)) {
-			return $msgError = "Formato physicaldeliveryofficename está incorreto";
+		if (!$request->physicaldeliveryofficename) {
+			if (!preg_match(Helpers::patternFormat('patternPhysicalDeliveryOfficeName'), $request->physicaldeliveryofficename)) {
+				return $msgError = "Formato physicaldeliveryofficename está incorreto";
+			}
 		}
 
 		if (!filter_var($request->mail, FILTER_VALIDATE_EMAIL)) {
 			return $msgError = "E-mail inválido";
 		}
 
-		if (!$request->scriptpath) {
-			return $msgError = "Campo scriptpath é obrigatório o preenchimento";
+		if ($request->userType == 'funcionario') {
+			if (!$request->scriptpath) {
+				return $msgError = "Campo scriptpath é obrigatório o preenchimento";
+			}
 		}
 
-		if (!$request->pager) {
-			return $msgError = "Campo pager é obrigatório o preenchimento";
-		} elseif (!filter_var($request->pager, FILTER_VALIDATE_EMAIL)) {
-			return $msgError = "pager inválido";
+		if($request->userType != 'aluno')
+			if (!$request->pager) {
+				return $msgError = "Campo pager é obrigatório o preenchimento";
+			} elseif (!filter_var($request->pager, FILTER_VALIDATE_EMAIL)) {
+				return $msgError = "pager inválido";			
 		}
 
 		if (!$request->title) {
@@ -149,12 +153,11 @@ class ActiveDirectoryController extends Controller
 			return $msgError = "Campo userType é obrigatório o preenchimento";
 		}
 
-		// if (!$request->ipphone) {
-		// 	return $msgError = "Campo ipphone é obrigatório o preenchimento";
-		// } else
-		if (!preg_match(Helpers::patternFormat('patternPhoneDigit'), $request->ipphone)) {
-			return $msgError = "Formato ipphone está incorreto";
-		}
+		if ($request->ipphone) {
+			if (!preg_match(Helpers::patternFormat('patternPhoneDigit'), $request->ipphone)) {
+				return $msgError = "Formato ipphone está incorreto";
+			}			
+		} 
 
 		return $msgError;
 	}
@@ -318,6 +321,8 @@ class ActiveDirectoryController extends Controller
 
 			$connection = new Container();
 			$sendToken = new SendTokenResetPasswordController($connection);
+			
+			$request['tipoRegistro'] = 'register_admin';
 
 			$sendToken->sendToken($request);
 
@@ -357,7 +362,7 @@ class ActiveDirectoryController extends Controller
 					}
 
 					$pessoa->WINUSUARIO = 'FAESA\/' . $this->samaccountname;
-					$pessoa->SENHA_TAC = Hash::make($this->password);
+					$pessoa->SENHA_TAC = md5($this->password);
 
 					$pessoa->save();
 
@@ -379,11 +384,11 @@ class ActiveDirectoryController extends Controller
 						return $msgErro;
 					}
 
-					$pessoa->WINUSUARIO = 'FAESA\/' . $this->samaccountname;
-					$pessoa->SENHA_TAC = Hash::make($this->password);
+					$pessoa->WINUSUARIO = 'FAESA\\' . $this->samaccountname;
+					$pessoa->SENHA_TAC = Helpers::cryptSenha($this->password);
 
-					$docente->WINUSUARIO = 'FAESA\/' . $this->samaccountname;
-					$docente->SENHA_DOL = Hash::make($this->password);
+					$docente->WINUSUARIO = 'FAESA\\' . $this->samaccountname;
+					$docente->SENHA_DOL = Helpers::cryptSenha($this->password);
 
 					$pessoa->save();
 
@@ -421,7 +426,7 @@ class ActiveDirectoryController extends Controller
 
 		$user = User::find($userCnFind);
 
-		if ($user) {
+		if (!$user) {
 			$this->errorResponse('Nenhum usuário encontrado para o CPF informado!');
 		}
 
@@ -460,6 +465,15 @@ class ActiveDirectoryController extends Controller
 
 				$groupController->addMemberGroupAll($request->groups, $user);
 			}
+
+			$this->samaccountname = $user->samaccountname;
+
+			$atualizaDadosLyceum = $this->atualizarDadosLyceum($request);
+
+			$data = [
+				'warning' => $atualizaDadosLyceum,
+				'user' => $user
+			];
 
 			$data = [
 				'info' => $user,

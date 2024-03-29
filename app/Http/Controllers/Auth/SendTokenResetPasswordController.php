@@ -3,20 +3,26 @@
 namespace App\Http\Controllers\Auth;
 
 use Exception;
+use App\Ldap\UserLdap;
+use App\Utils\Helpers;
+use App\Models\LyPessoa;
+use App\Models\LyDocente;
 use LdapRecord\Container;
 use App\Mail\ResetPassword;
+use Illuminate\Support\Str;
 use App\Traits\ApiResponser;
 use Illuminate\Http\Request;
 use App\Models\AdPasswordReset;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
-use App\Ldap\UserLdap;
-use App\Utils\Helpers;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use function Laravel\Prompts\warning;
+use LdapRecord\Models\ActiveDirectory\User;
+
 use LdapRecord\Exceptions\InsufficientAccessException;
 use LdapRecord\Exceptions\ConstraintViolationException;
-use LdapRecord\Models\ActiveDirectory\User;
-use Illuminate\Support\Str;
 
 class SendTokenResetPasswordController extends Controller
 {
@@ -49,7 +55,7 @@ class SendTokenResetPasswordController extends Controller
 		if (!$user) {
 			return $this->errorResponse("CPF Não encontrado!");
 		}
-
+		
 		$email = $user['mail'][0];
 		$emailMasked =  str::mask($email, '*', 4, 7);
 
@@ -65,15 +71,27 @@ class SendTokenResetPasswordController extends Controller
 	public function sendToken(Request $request)
 	{
 		$data = [];
-		$request->validate(
-			[
-				'cpf' => 'required|string|',
-			],
-			[
-				'cpf.required' => 'O campo CPF é obrigatório para esta ação',
-				'cpf.string' => 'O campo CPF precisa ser do tipo String'
-			]
-		);
+		$email='';
+		
+		if(!$request->has('tipoRegistro')){
+			$request->validate(
+				[
+					'cpf' => 'required|string|',
+					'g-recaptcha-response' => 'required',
+				],
+				[
+					'cpf.required' => 'O campo CPF é obrigatório para esta ação',
+					'cpf.string' => 'O campo CPF precisa ser do tipo String',
+					'g-recaptcha-response.required' => 'g-recaptcha-response é obrigatório'
+				]
+			);
+
+			$recaptchaValid = VerifyRecaptchaController::verifyToken($request);
+	
+			if($recaptchaValid['status'] == 'error'){
+				return $this->errorResponse("Erro de validação reCAPTCHA.");
+			}
+		}
 
 		try {
 			if (!$this->validateTimeSendToken($request->cpf)) {
@@ -83,13 +101,25 @@ class SendTokenResetPasswordController extends Controller
 			$cpfMasked = Helpers::formatCnpjCpf($request->cpf);
 
 			$user = $this->connection->query()->whereIn('description', [$request->cpf, $cpfMasked])->first();
-
+			
 			if (!$user) {
 				return $this->errorResponse("Nenhum usuário encontrado para o CPF informado.");
 			}
-
+			
 			$email = $user['mail'][0];
 
+			foreach($user['memberof'] as $grupo){				
+				if($grupo === 'CN=Docentes,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br'){
+					if(isset($user['pager'])){
+						$email = $user['pager'][0];
+					}else{
+						$docente = DB::connection('sqlsrv_lyceum')->select("SELECT E_MAIL,CPF FROM LY_DOCENTE WHERE CPF in ('".$request->cpf."','".$cpfMasked."')");
+						$email = $docente[0]->E_MAIL;
+					}
+					break;
+				}
+			}
+			
 			$data['cpf'] = $request->cpf;
 			$data['nome'] = $user['cn'][0];
 			$data['login'] = $user['samaccountname'][0];
@@ -102,8 +132,8 @@ class SendTokenResetPasswordController extends Controller
 			$linkChangePass = 'http://acessohomolog.faesa.br/#/auth-user/forgot-password-reset/' . $data['token'];
 
 			$data['link'] = $linkChangePass;
-			
-			Mail::to('junior.devstack@gmail.com')->send(new ResetPassword($data));
+
+			Mail::to($email)->send(new ResetPassword($data));
 
 			return $this->successResponse($reset);
 		} catch (Exception $e) {
@@ -154,7 +184,7 @@ class SendTokenResetPasswordController extends Controller
 		if (count($user) == 0) {
 			return $this->errorResponse("Usuário não encontrado para o token informado!");
 		}
-		
+
 		return $this->successResponse(
 			[
 				"user" =>  [
@@ -212,8 +242,7 @@ class SendTokenResetPasswordController extends Controller
 
 			$userToken = AdPasswordReset::where('token', $request->token)->first();
 
-			$cpfMasked = Helpers::formatCnpjCpf($request->cpf);
-
+			$cpfMasked = Helpers::formatCnpjCpf($userToken->cpf);
 			$userInfo = $this->connection->query()->whereIn('description', [$userToken->cpf, $cpfMasked])->get();
 			$userCnFind = $userInfo[0]['dn'];
 
@@ -226,7 +255,18 @@ class SendTokenResetPasswordController extends Controller
 
 			$this->changeStatusToken($request->token);
 
-			$data = ['data' => 'Senha alterada com sucesso'];
+			$dataAtualizaLyceum = [
+				'password' => $request->password,
+				'cpf' => $userToken->cpf,
+				'samaccountname' => $user->samaccountname[0],
+			];
+
+			$msgAlteraLyceum = $this->atualizarDadosLyceum($dataAtualizaLyceum);
+
+			$data = [
+				'warning' => $msgAlteraLyceum,
+				'data' => 'Senha alterada com sucesso'
+			];
 
 			return $this->successMessage($data);
 		} catch (InsufficientAccessException $ex) {
@@ -294,6 +334,47 @@ class SendTokenResetPasswordController extends Controller
 			return  $this->successResponse($tokenAdPassword);
 		} catch (Exception $e) {
 			Log::warning("ERRO AO ALTERAR STATUS TOKEN, AO ALTERAR A SENHA: " . $e);
+		}
+	}
+
+	private function atualizarDadosLyceum($data)
+	{
+		try {			
+			$cpfMasked = Helpers::formatCnpjCpf($data['cpf']);
+			$cpf = trim(str_replace('-', '', str_replace('.', '', $data['cpf'])));
+			$msgErro = '';
+
+			$docente = LyDocente::whereIn('CPF', [$cpf, $cpfMasked])->first();
+			$pessoa = LyPessoa::whereIn('CPF', [$cpf, $cpfMasked])->first();
+			
+			$senha = Helpers::cryptSenha($data['password']);
+			
+			if (!$pessoa) {
+				$msgErro = "ERRO AO ATUALIZAR DADOS DO PROFESSOR NO LYCEUM, TABELA LY_PESSOA, DADOS NÃO ENCONTRADO PARA O CPF: " . $cpf;
+				Log::warning($msgErro);
+				return $msgErro;
+			}else{
+				$pessoa->WINUSUARIO = 'FAESA\\' . $data['samaccountname'];
+				$pessoa->SENHA_TAC = Helpers::cryptSenha($data['password']);
+				$pessoa->save();
+			}
+
+			if (!$docente) {
+				$msgErro = "ERRO AO ATUALIZAR DADOS DO PROFESSOR NO LYCEUM, TABELA LY_DOCENTE, DADOS NÃO ENCONTRADO PARA O CPF: " . $cpf;
+				Log::warning($msgErro);
+				return $msgErro;
+			}else{
+				$docente->WINUSUARIO = 'FAESA\\' . $data['samaccountname'];
+				$docente->SENHA_DOL = Helpers::cryptSenha($data['password']);
+				$docente->save();
+
+			}
+			return $msgErro;
+
+		} catch (Exception $e) {
+			$msg = "ERRO AO ATUALIZAR DADOS NO LYCEUM: " . $e->getMessage();
+			Log::warning($msg);
+			return $this->errorResponse($msg);
 		}
 	}
 }

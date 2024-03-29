@@ -12,4 +12,10 @@ class LyPessoa extends Model
 	protected $table = 'LY_PESSOA';
 
 	protected $connection = 'sqlsrv_lyceum';
+
+	public $timestamps = false;
+
+	public $incrementing = false;
+
+	protected $primaryKey = 'CPF';
 }

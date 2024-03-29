@@ -17,13 +17,13 @@ use App\Ldap\UserLdap as LdapUserLdap;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
-
+use LdapRecord\Models\ActiveDirectory\Group;
 class LoginRequest extends FormRequest
 {
 
     use ApiResponser;
 
-	CONST CN_LOGIN = 'OU=NUCLEO DE TECNOLOGIA E INFORMACAO,OU=ADMINISTRATIVO,OU=FUNCIONARIOS,OU=FAESA,DC=faesa,DC=br';
+	CONST CN_LOGIN = 'CN=Nucleo_de_Tecnologia_da_Informação,OU=Grupos Setores,OU=Servicos,DC=faesa,DC=br';
 
     /**
      * Determine if the user is authorized to make this request.
@@ -49,12 +49,12 @@ class LoginRequest extends FormRequest
 
 		if(!$checkOuLogin){
 			RateLimiter::hit($this->throttleKey());
-            return $this->errorResponse(['error' => 'Usuário não possui permissão para realizar o login']);
+            return $this->errorResponse('Usuário não possui permissão para realizar o login');
 		}
 
         if (!auth('api')->attempt($credentials)) {
             RateLimiter::hit($this->throttleKey());
-            return $this->errorResponse(['fail' => 'unauthenticated']);
+            return $this->errorResponse('unauthenticated');
         }else{
             return response()->json([
                 'user_info' => auth('api')->user(),
@@ -70,9 +70,13 @@ class LoginRequest extends FormRequest
 
 	private function checkOuLogin($samaccountname){
 		$connection = Container::getDefaultConnection();
-		$check = $connection->query()->in(self::CN_LOGIN)->where('samaccountname', '=', $samaccountname)->get();
+
+		$group = Group::find(self::CN_LOGIN);
+
+		$checkUser = $group->members()->whereEndsWith('samaccountname', $samaccountname)->get();
+		$checkUser = $checkUser->toArray();
 		
-		return $check;
+		return $checkUser;
 	}
 
     /**

@@ -1,6 +1,13 @@
 <?php
 namespace App\Utils;
 
+use Exception;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Termwind\Components\Raw;
+
+use function Laravel\Prompts\select;
+
 class Helpers{
   public static function clearName($name){
     return strtolower(
@@ -18,7 +25,7 @@ class Helpers{
     $formats = [
         'patternPhoneComplete' => '/^(?:(?:\+|00)?(55)\s?)?(?:(?:\(?[1-9][0-9]\)?)?\s?)?(?:((?:9\d|[2-9])\d{3})-?(\d{4}))$/',
         'patternCpfComplete' => '/^\d{3}\.\d{3}\.\d{3}\-\d{2}$/',
-        'patternPhysicalDeliveryOfficeName' => '/^\d{7}/',
+        'patternPhysicalDeliveryOfficeName' => '/^\d{10}/',
         'patternSerialNumber' => '/^\d{11}$/',
         'patternPhoneDigit' => '/^\d{4}$/',
         'patternCpf' => '/^\d{11}$/',
@@ -47,4 +54,17 @@ class Helpers{
     $resp = date("Y-m-d H:i:s", $resp);
     return $resp;
   }
+
+  public static function cryptSenha($senha){
+	try{		
+		$senha = DB::connection('sqlsrv_lyceum')->select("select dbo.Crypt('$senha') senha");
+		
+		return $senha[0]->senha;
+
+	}catch(Exception $e){
+		Log::warning("ERRO AO CRIPTOGRAFAR SENHA: ". $e->getMessage());
+	}
+  }
+
+
 }
