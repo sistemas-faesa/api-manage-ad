@@ -21,12 +21,12 @@ class SearchController extends Controller
 
 	private $connection;
 	const CN_DEV = 'OU=Desenvolvimento,DC=faesa,DC=br';
-	const CN_ALUNOS = 'OU=ATIVOS,OU=ALUNOS,OU=FAESA,DC=faesa,DC=br';
-	const CN_FUNCIONARIOS = 'OU=Funcionarios_ADM,OU=Faesa,OU=Logins Iniciais,DC=faesa,DC=br';
-	const CN_PROFESSORES = 'OU=Docente,OU=Faesa,OU=Logins Iniciais,DC=faesa,DC=br';
-	// const CN_ALUNOS = 'CN=Alunos,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br';
-	// const CN_FUNCIONARIOS = 'CN=Funcionarios,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=b';
-	// const CN_PROFESSORES = 'CN=Docentes,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br';
+	// const CN_ALUNOS = 'OU=ATIVOS,OU=ALUNOS,OU=FAESA,DC=faesa,DC=br';
+	// const CN_FUNCIONARIOS = 'OU=Funcionarios_ADM,OU=Faesa,OU=Logins Iniciais,DC=faesa,DC=br';
+	// const CN_PROFESSORES = 'OU=Docente,OU=Faesa,OU=Logins Iniciais,DC=faesa,DC=br';
+	const CN_ALUNOS = 'CN=Alunos,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br';
+	const CN_FUNCIONARIOS = 'CN=Funcionarios,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=b';
+	const CN_PROFESSORES = 'CN=Docentes,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br';
 
 	public function __construct()
 	{

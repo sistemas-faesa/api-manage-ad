@@ -84,9 +84,14 @@ class ActiveDirectoryController extends Controller
 			// 	return $msgError = "Campo serialNumber é obrigatório o preenchimento";
 			// } else
 
-			if (!preg_match(Helpers::patternFormat('patternSerialNumber'), $request->serialNumber)) {
-				return $msgError = "Formato serialNumber está incorreto";
+			// if (!preg_match(Helpers::patternFormat('patternSerialNumber'), $request->serialNumber)) {
+			// 	return $msgError = "Formato serialNumber está incorreto";
+			// }
+			
+			if($request->serialNumber && !is_numeric($request->serialNumber)){
+				return $msgError = "SerialNumber deve ser numérico";
 			}
+
 		}
 
 		if (!$request->cn) {
@@ -114,11 +119,11 @@ class ActiveDirectoryController extends Controller
 		// if (!$request->physicaldeliveryofficename) {
 		// 	return $msgError = "Campo physicaldeliveryofficename é obrigatório o preenchimento";
 		// } else
-		if (!$request->physicaldeliveryofficename) {
-			if (!preg_match(Helpers::patternFormat('patternPhysicalDeliveryOfficeName'), $request->physicaldeliveryofficename)) {
-				return $msgError = "Formato physicaldeliveryofficename está incorreto";
-			}
-		}
+		// if (!$request->physicaldeliveryofficename) {
+		// 	if (!preg_match(Helpers::patternFormat('patternPhysicalDeliveryOfficeName'), $request->physicaldeliveryofficename)) {
+		// 		return $msgError = "Formato physicaldeliveryofficename está incorreto";
+		// 	}
+		// }
 
 		if (!filter_var($request->mail, FILTER_VALIDATE_EMAIL)) {
 			return $msgError = "E-mail inválido";
@@ -130,7 +135,7 @@ class ActiveDirectoryController extends Controller
 			}
 		}
 
-		if($request->userType != 'aluno')
+		if($request->userType != 'funcionario')
 			if (!$request->pager) {
 				return $msgError = "Campo pager é obrigatório o preenchimento";
 			} elseif (!filter_var($request->pager, FILTER_VALIDATE_EMAIL)) {
@@ -153,11 +158,11 @@ class ActiveDirectoryController extends Controller
 			return $msgError = "Campo userType é obrigatório o preenchimento";
 		}
 
-		if ($request->ipphone) {
-			if (!preg_match(Helpers::patternFormat('patternPhoneDigit'), $request->ipphone)) {
-				return $msgError = "Formato ipphone está incorreto";
-			}			
-		} 
+		// if ($request->ipphone) {
+		// 	if (!preg_match(Helpers::patternFormat('patternPhoneDigit'), $request->ipphone)) {
+		// 		return $msgError = "Formato ipphone está incorreto";
+		// 	}			
+		// } 
 
 		return $msgError;
 	}
@@ -242,7 +247,7 @@ class ActiveDirectoryController extends Controller
 	}
 
 	private function saveUser(Request $request)
-	{
+	{	
 		switch ($request->userType) {
 			case 'aluno':
 				$user = (new User)->inside(self::CN_ALUNOS);
@@ -284,14 +289,14 @@ class ActiveDirectoryController extends Controller
 		$user->userAccountControl = 512;
 
 		try {
-			if ($request->userType != 'aluno') {
-				$user->manager = $request->manager;
-			}
+			// if ($request->userType != 'aluno') {
+			// 	$user->manager = $request->manager;
+			// }
 
 			if ($request->userType == 'aluno') {
 				$user->userPrincipalName = $this->samaccountname . '@aluno.faesa.br';
 			}
-
+			
 			$user->save();
 			$user->refresh();
 
