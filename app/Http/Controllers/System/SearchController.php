@@ -130,6 +130,7 @@ class SearchController extends Controller
                 $members = $members->orWhere('physicaldeliveryofficename', 'contains', $searchValue);
                 $members = $members->orWhere('displayname', 'contains', $searchValue);
                 $members = $members->orWhere('givenname', 'contains', $searchValue);
+                $members = $members->orWhere('description', 'contains', $searchValue);
             }
 
             $results = [];
