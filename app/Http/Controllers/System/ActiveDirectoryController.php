@@ -87,7 +87,7 @@ class ActiveDirectoryController extends Controller
 			// if (!preg_match(Helpers::patternFormat('patternSerialNumber'), $request->serialNumber)) {
 			// 	return $msgError = "Formato serialNumber está incorreto";
 			// }
-			
+
 			if($request->serialNumber && !is_numeric($request->serialNumber)){
 				return $msgError = "SerialNumber deve ser numérico";
 			}
@@ -139,7 +139,7 @@ class ActiveDirectoryController extends Controller
 			if (!$request->pager) {
 				return $msgError = "Campo pager é obrigatório o preenchimento";
 			} elseif (!filter_var($request->pager, FILTER_VALIDATE_EMAIL)) {
-				return $msgError = "pager inválido";			
+				return $msgError = "pager inválido";
 		}
 
 		if (!$request->title) {
@@ -161,8 +161,8 @@ class ActiveDirectoryController extends Controller
 		// if ($request->ipphone) {
 		// 	if (!preg_match(Helpers::patternFormat('patternPhoneDigit'), $request->ipphone)) {
 		// 		return $msgError = "Formato ipphone está incorreto";
-		// 	}			
-		// } 
+		// 	}
+		// }
 
 		return $msgError;
 	}
@@ -247,7 +247,7 @@ class ActiveDirectoryController extends Controller
 	}
 
 	private function saveUser(Request $request)
-	{	
+	{
 		switch ($request->userType) {
 			case 'aluno':
 				$user = (new User)->inside(self::CN_ALUNOS);
@@ -289,14 +289,14 @@ class ActiveDirectoryController extends Controller
 		$user->userAccountControl = 512;
 
 		try {
-			// if ($request->userType != 'aluno') {
-			// 	$user->manager = $request->manager;
-			// }
+			if ($request->manager) {
+				$user->manager = $request->manager;
+			}
 
 			if ($request->userType == 'aluno') {
 				$user->userPrincipalName = $this->samaccountname . '@aluno.faesa.br';
 			}
-			
+
 			$user->save();
 			$user->refresh();
 
@@ -326,7 +326,7 @@ class ActiveDirectoryController extends Controller
 
 			$connection = new Container();
 			$sendToken = new SendTokenResetPasswordController($connection);
-			
+
 			$request['tipoRegistro'] = 'register_admin';
 
 			$sendToken->sendToken($request);
@@ -456,6 +456,13 @@ class ActiveDirectoryController extends Controller
 		$user->company = $request->company;
 		$user->userAccountControl = $request->userAccountControl ? 512 : 512 + 2;
 		$user->accountexpires = $accountexpires;
+
+        if ($request->manager) {
+            $user->manager = $request->manager;
+        }
+        else{
+            $user->manager = null;
+        }
 
 		try {
 			$user->save();

@@ -110,6 +110,11 @@ class SearchController extends Controller
             $listType = $request->listType;
 
             $query = $this->getGroupQuery($listType);
+
+            if($request->isManager){
+                $query = $this->getGroupQuery('funcionario');
+            }
+
             $group = Group::find($query);
 
             $members = $group->members();
@@ -146,6 +151,7 @@ class SearchController extends Controller
                         'givenname' =>  $member['givenname'][0] ?? 'NI',
                         'displayname' => $member['displayname'][0] ?? 'NI',
                         'cpf' => $member['description'][0] ?? 'NI',
+                        'description' => $member['description'][0] ?? 'NI',
                         'dateofBirth' => isset($member['dateofBirth']) ? (gettype(is_null($member['dateofbirth']) ? 0 : $member['dateofbirth']) == 'integer' ? 0 : $member['dateofbirth'][0]) : 0,
                         'serialNumber' => $member['serialnumber'][0] ?? 'NI', //
                         'samaccountname' => $member['samaccountname'][0] ?? 'NI',
@@ -159,9 +165,14 @@ class SearchController extends Controller
                         'company' => $member['company'][0] ?? 'NI',
                         'groups' => $member['memberof'] ?? 'NI',
                         'userAccountControl' => isset($member['useraccountcontrol']) ? ($member['useraccountcontrol'][0] == 512 ? true : false) : false,
-                        'accountexpires' => isset($member['accountexpires']) ? $member['accountexpires'][0] : 0
+                        'accountexpires' => isset($member['accountexpires']) ? $member['accountexpires'][0] : 0,
+                        'distinguishedname' => isset($member['distinguishedname']) ? $member['distinguishedname'][0] : "",
+                        'objectguid' => isset($member['objectguid']) ? $member['objectguid'][0] : "",
+                        'objectsid' => isset($member['objectsid']) ? $member['objectsid'][0] : "",
                     ];
                 }, $members->toArray());
+
+                //$results = $members;
 
                 return false;
             });
@@ -229,6 +240,8 @@ class SearchController extends Controller
                 'userAccountControl' => $user->userAccountControl[0] == 512 ? true : false,
                 'accountexpires' => gettype($user->accountexpires) == 'integer' ? 0 : $user->accountexpires,
                 'groups' => isset($user['memberof']) ? $user->memberof : 'NI',
+                'manager' => isset($user['manager']) ? $user->manager[0] : 'NI',
+                'managerObj' => isset($user['manager']) ? ['id' => $user->manager[0]] : [],
             ];
 
             return $this->successResponse($data);
