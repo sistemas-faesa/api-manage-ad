@@ -284,7 +284,7 @@ class ActiveDirectoryController extends Controller
 		$user->title = $request->title;
 		$user->department = $request->department;
 		$user->company = $request->company;
-		$user->unicodePwd = "Faesa@2023";
+		$user->unicodePwd = "Faesa@" . substr($request->description, 0, 3);
 		$user->proxyaddresses = "SMTP:" . $this->samaccountname . '@aluno.faesa.br';
 		$user->userAccountControl = 512;
 
