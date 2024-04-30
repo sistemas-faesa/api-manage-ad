@@ -127,11 +127,21 @@ class SendTokenResetPasswordController extends Controller
                                     WHERE P.CPF IN ('".$request->cpf."','".$cpfMasked."')
                                             AND A.SIT_ALUNO = 'Ativo'
                                 ");
-                    $email = $aluno[0]->E_MAIL;
+                    if(!$aluno){
+                        $email = "";
+                    }
+                    else{
+                        $email = $aluno[0]->E_MAIL;
+                    }
 
 					break;
 				}
 			}
+
+            if(!$email){
+                Log::warning("Aluno nao existe no lycuem: " . $request->cpf);
+                return $this->errorResponse("Nenhum usuário encontrado para o CPF informado. COD: 002");
+            }
 
 			$data['cpf'] = $request->cpf;
 			$data['nome'] = $user['cn'][0];
@@ -148,7 +158,13 @@ class SendTokenResetPasswordController extends Controller
 
 			Mail::to($email)->send(new ResetPassword($data));
 
-			return $this->successResponse($reset);
+            $emailMasked =  str::mask($email, '*', 4, 7);
+
+			return $this->successResponse([
+                'nome' => $data['nome'],
+                'email' => $emailMasked,
+                'cpf' => $data['cpf'],
+            ]);
 		} catch (Exception $e) {
 			Log::warning("Erro ao Enviar TOKEN: " . $e->getMessage());
 		}
