@@ -55,7 +55,7 @@ class SendTokenResetPasswordController extends Controller
 		if (!$user) {
 			return $this->errorResponse("CPF Não encontrado!");
 		}
-		
+
 		$email = $user['mail'][0];
 		$emailMasked =  str::mask($email, '*', 4, 7);
 
@@ -72,7 +72,7 @@ class SendTokenResetPasswordController extends Controller
 	{
 		$data = [];
 		$email='';
-		
+
 		if(!$request->has('tipoRegistro')){
 			$request->validate(
 				[
@@ -87,7 +87,7 @@ class SendTokenResetPasswordController extends Controller
 			);
 
 			$recaptchaValid = VerifyRecaptchaController::verifyToken($request);
-	
+
 			if($recaptchaValid['status'] == 'error'){
 				return $this->errorResponse("Erro de validação reCAPTCHA.");
 			}
@@ -101,14 +101,14 @@ class SendTokenResetPasswordController extends Controller
 			$cpfMasked = Helpers::formatCnpjCpf($request->cpf);
 
 			$user = $this->connection->query()->whereIn('description', [$request->cpf, $cpfMasked])->first();
-			
+
 			if (!$user) {
 				return $this->errorResponse("Nenhum usuário encontrado para o CPF informado.");
 			}
-			
+
 			$email = $user['mail'][0];
 
-			foreach($user['memberof'] as $grupo){				
+			foreach($user['memberof'] as $grupo){
 				if($grupo === 'CN=Docentes,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br'){
 					if(isset($user['pager'])){
 						$email = $user['pager'][0];
@@ -118,8 +118,21 @@ class SendTokenResetPasswordController extends Controller
 					}
 					break;
 				}
+
+				if($grupo === 'CN=Alunos,OU=Grupos Servicos,OU=Servicos,DC=faesa,DC=br'){
+                    $aluno = DB::connection('sqlsrv_lyceum')
+                                ->select("
+                                    SELECT P.CPF, P.E_MAIL FROM LY_PESSOA P
+                                    JOIN LY_ALUNO A ON P.PESSOA=A.PESSOA
+                                    WHERE P.CPF IN ('".$request->cpf."','".$cpfMasked."')
+                                            AND A.SIT_ALUNO = 'Ativo'
+                                ");
+                    $email = $aluno[0]->E_MAIL;
+
+					break;
+				}
 			}
-			
+
 			$data['cpf'] = $request->cpf;
 			$data['nome'] = $user['cn'][0];
 			$data['login'] = $user['samaccountname'][0];
@@ -339,16 +352,16 @@ class SendTokenResetPasswordController extends Controller
 
 	private function atualizarDadosLyceum($data)
 	{
-		try {			
+		try {
 			$cpfMasked = Helpers::formatCnpjCpf($data['cpf']);
 			$cpf = trim(str_replace('-', '', str_replace('.', '', $data['cpf'])));
 			$msgErro = '';
 
 			$docente = LyDocente::whereIn('CPF', [$cpf, $cpfMasked])->first();
 			$pessoa = LyPessoa::whereIn('CPF', [$cpf, $cpfMasked])->first();
-			
+
 			$senha = Helpers::cryptSenha($data['password']);
-			
+
 			if (!$pessoa) {
 				$msgErro = "ERRO AO ATUALIZAR DADOS DO PROFESSOR NO LYCEUM, TABELA LY_PESSOA, DADOS NÃO ENCONTRADO PARA O CPF: " . $cpf;
 				Log::warning($msgErro);
