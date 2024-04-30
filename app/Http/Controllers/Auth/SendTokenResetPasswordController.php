@@ -127,21 +127,13 @@ class SendTokenResetPasswordController extends Controller
                                     WHERE P.CPF IN ('".$request->cpf."','".$cpfMasked."')
                                             AND A.SIT_ALUNO = 'Ativo'
                                 ");
-                    if(!$aluno){
-                        $email = "";
-                    }
-                    else{
+                    if($aluno){
                         $email = $aluno[0]->E_MAIL;
                     }
 
 					break;
 				}
 			}
-
-            if(!$email){
-                Log::warning("Aluno nao existe no lycuem: " . $request->cpf);
-                return $this->errorResponse("Nenhum usuário encontrado para o CPF informado. COD: 002");
-            }
 
 			$data['cpf'] = $request->cpf;
 			$data['nome'] = $user['cn'][0];
