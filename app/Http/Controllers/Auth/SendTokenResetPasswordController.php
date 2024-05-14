@@ -144,7 +144,7 @@ class SendTokenResetPasswordController extends Controller
 
 			$reset = AdPasswordReset::create($data);
 
-			$linkChangePass = 'http://acessohomolog.faesa.br/#/auth-user/forgot-password-reset/' . $data['token'];
+			$linkChangePass = 'https://acesso.faesa.br/#/auth-user/forgot-password-reset/' . $data['token'];
 
 			$data['link'] = $linkChangePass;
 
