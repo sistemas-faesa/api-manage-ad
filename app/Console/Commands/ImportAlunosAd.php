@@ -44,7 +44,7 @@ class ImportAlunosAd extends Command
 	public function handle()
 	{
 		try {
-			$alunos = DB::connection('sqlsrv_lyceum')->select("select top 1 * from VW_FAESA_ALUNOS_INTEGRACAO_AD vw
+			$alunos = DB::connection('sqlsrv_lyceum')->select("select * from VW_FAESA_ALUNOS_INTEGRACAO_AD vw
 			where not EXISTS (select * from LYCEUM_INTEGRACAO.dbo.log_users_ads log_mig where log_mig.cpf = vw.cpf and status in ('existente', 'exito'))");
 
 			if (count($alunos) > 0) {
