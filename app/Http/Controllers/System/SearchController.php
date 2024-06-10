@@ -255,6 +255,8 @@ class SearchController extends Controller
 
     private function getGroupQuery($listType)
     {
+        $ouQuery = "";
+
         switch ($listType) {
             case 'aluno':
                 $ouQuery = self::CN_ALUNOS;
