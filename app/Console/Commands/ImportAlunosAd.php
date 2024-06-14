@@ -49,11 +49,11 @@ class ImportAlunosAd extends Command
 
 			if (count($alunos) > 0) {
 				foreach ($alunos as $aluno) {
-					
+
 					$activeDirectory = new ActiveDirectoryController($this->connection);
 
 					$importAluno = $this->checkImportAd($aluno->cpf);
-					
+
 					if (!$importAluno) {
 						Log::warning("ALUNO JÁ MIGRADO ANTERIORMENTE: " . $aluno->cpf);
 						continue;
@@ -96,7 +96,7 @@ class ImportAlunosAd extends Command
 					}
 
 					if ($response->status() == 200) {
-						
+
 						$data = [
 							'nome' => $aluno->nome_exibicao,
 							'cpf' =>  $aluno->cpf,
@@ -123,6 +123,15 @@ class ImportAlunosAd extends Command
 			Log::warning("ERRO NO PROCESSO DE IMPORTAÇÃO DE ALUNOS PARA O AD: " . $e->getMessage());
 			Log::warning("Tipo de Exceção: " . get_class($e));
 			Log::warning("Rastreamento: " . $e->getTraceAsString());
+
+            $this->registerLogDb([
+                'nome' => '',
+                'cpf' => '',
+                'matricula' => '',
+                'login' => '',
+                'obs' => "ERRO 001 NO PROCESSO DE IMPORTAÇÃO DE ALUNOS PARA O AD: " . $e->getMessage(),
+                'status' => 'error',
+            ]);
 		}
 	}
 
@@ -159,12 +168,21 @@ class ImportAlunosAd extends Command
 			Log::warning("ERRO NO PROCESSO DE CHECKAGEM DE ALUNO MIGRADO NO AD: " . $e->getMessage());
 			Log::warning("Tipo de Exceção: " . get_class($e));
 			Log::warning("Rastreamento: " . $e->getTraceAsString());
+
+            $this->registerLogDb([
+                'nome' => '',
+                'cpf' => '',
+                'matricula' => '',
+                'login' => '',
+                'obs' => "ERRO 002 NO PROCESSO DE IMPORTAÇÃO DE ALUNOS PARA O AD: " . $e->getMessage(),
+                'status' => 'error',
+            ]);
 		}
 	}
 
 	private function registerLogDb($data)
 	{
-		
+
 		try {
 			$log = LogUsersAd::create([
 				'nome' => $data['nome'],
@@ -175,9 +193,9 @@ class ImportAlunosAd extends Command
 				'obs' => $data['obs'],
 				'status' => $data['status']
 			]);
-			
+
 			return $log;
-			
+
 		} catch (Exception $e) {
 			Log::warning("ERRO NO PROCESSO DE CHECKAGEM DE ALUNO MIGRADO NO AD: " . $e->getMessage());
 			Log::warning("Tipo de Exceção: " . get_class($e));
