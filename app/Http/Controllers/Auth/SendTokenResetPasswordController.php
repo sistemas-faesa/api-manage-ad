@@ -8,6 +8,7 @@ use App\Utils\Helpers;
 use App\Models\LyPessoa;
 use App\Models\LyDocente;
 use LdapRecord\Container;
+use App\Models\LogUsersAd;
 use App\Mail\ResetPassword;
 use Illuminate\Support\Str;
 use App\Traits\ApiResponser;
@@ -19,8 +20,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use function Laravel\Prompts\warning;
-use LdapRecord\Models\ActiveDirectory\User;
 
+use LdapRecord\Models\ActiveDirectory\User;
 use LdapRecord\Exceptions\InsufficientAccessException;
 use LdapRecord\Exceptions\ConstraintViolationException;
 
@@ -148,7 +149,19 @@ class SendTokenResetPasswordController extends Controller
 
 			$data['link'] = $linkChangePass;
 
-			Mail::to($email)->send(new ResetPassword($data));
+            try {
+                Mail::to($email)->send(new ResetPassword($data));
+            } catch (\Throwable $th) {
+                LogUsersAd::create([
+                    'nome' => $data['nome'],
+                    'cpf' => $data['cpf'],
+                    'matricula' => '',
+                    'login' => $data['login'],
+                    'evento' => 'AdPasswordReset',
+                    'obs' => 'Falha no envio de email para reset de senha: ' . $th->getMessage(),
+                    'status' => 'error'
+                ]);
+            }
 
             $emailMasked =  str::mask($email, '*', 4, 7);
 
