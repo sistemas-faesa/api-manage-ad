@@ -15,9 +15,9 @@ return [
     |
     */
 
-    'paths' => ['*'],
+    'paths' => ['^/'],
 
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['GET', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE'],
 
     // 'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:3000')],
 
@@ -27,9 +27,9 @@ return [
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => [],
+    'exposed_headers' => ['Link'],
 
-    'max_age' => 0,
+    'max_age' => 3600,
 
     'supports_credentials' => true,
 
