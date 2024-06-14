@@ -8,6 +8,7 @@ use App\Http\Controllers\System\SearchController;
 use App\Http\Controllers\System\LogUsersAdController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\System\ActiveDirectoryController;
+use App\Http\Controllers\System\AdPasswordResetController;
 use App\Http\Controllers\Auth\SendTokenResetPasswordController;
 
 /*
@@ -41,6 +42,7 @@ Route::middleware(['access.security'])->prefix('v1')->group(function(){
     Route::post('ad-manage/reset-password/send-token', [SendTokenResetPasswordController::class, 'sendToken']);
 
     Route::get('ad-manage/log-users-ad', [LogUsersAdController::class, 'getAll']);
+    Route::get('ad-manage/password-resets-ad', [AdPasswordResetController::class, 'getAll']);
 });
 // Route::prefix('v1')->middleware('jwt.auth')->group(function(){
 //     Route::get('ad-manage/me', [LoginRequest::class, "me"]);
