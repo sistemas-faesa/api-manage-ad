@@ -1,13 +1,14 @@
 <?php
 
-use App\Http\Controllers\Auth\ResetPasswordController;
-use App\Http\Controllers\Auth\SendTokenResetPasswordController;
-use App\Http\Controllers\System\ActiveDirectoryController;
-use App\Http\Controllers\System\GroupController;
-use App\Http\Controllers\System\SearchController;
-use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Controllers\System\GroupController;
+use App\Http\Controllers\System\SearchController;
+use App\Http\Controllers\System\LogUsersAdController;
+use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\System\ActiveDirectoryController;
+use App\Http\Controllers\Auth\SendTokenResetPasswordController;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,6 +39,8 @@ Route::middleware(['access.security'])->prefix('v1')->group(function(){
     Route::patch('ad-manage/change-password/admin', [SendTokenResetPasswordController::class, 'changePasswordAdmin']);
     Route::patch('ad-manage/change-password/', [SendTokenResetPasswordController::class, 'changePasswordPublic']);
     Route::post('ad-manage/reset-password/send-token', [SendTokenResetPasswordController::class, 'sendToken']);
+
+    Route::get('ad-manage/log-users-ad', [LogUsersAdController::class, 'getAll']);
 });
 // Route::prefix('v1')->middleware('jwt.auth')->group(function(){
 //     Route::get('ad-manage/me', [LoginRequest::class, "me"]);
