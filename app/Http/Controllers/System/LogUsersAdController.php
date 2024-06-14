@@ -22,6 +22,7 @@ class LogUsersAdController extends Controller
                     function (Builder $query) use ($qs) {
                         $query
                             ->orWhere('nome', 'like',  '%' . $qs['search'] . '%')
+                            ->orWhere('obs', 'like',  '%' . $qs['search'] . '%')
                             ->orWhere('cpf', '=',  $qs['search'])
                             ->orWhere('matricula', '=',  $qs['search'])
                             ->orWhere('login', 'like',  '%' . $qs['search'] . '%')
