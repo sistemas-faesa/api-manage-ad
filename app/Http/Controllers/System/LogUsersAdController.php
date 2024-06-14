@@ -23,8 +23,8 @@ class LogUsersAdController extends Controller
                         $query
                             ->orWhere('nome', 'like',  '%' . $qs['search'] . '%')
                             ->orWhere('obs', 'like',  '%' . $qs['search'] . '%')
-                            ->orWhere('cpf', '=',  $qs['search'])
-                            ->orWhere('matricula', '=',  $qs['search'])
+                            ->orWhere('cpf', 'like',  '%' . $qs['search'] . '%')
+                            ->orWhere('matricula', 'like',  '%' . $qs['search'] . '%')
                             ->orWhere('login', 'like',  '%' . $qs['search'] . '%')
                             ->orWhere('evento', '=',  $qs['search'])
                             ->orWhere('status', '=',  $qs['search']);
