@@ -135,6 +135,8 @@ class AtualizarAluno extends Command
 
 			$user = User::find($userCnFind);
 			$user->userAccountControl = 512 + 2;
+			
+			$user->save();
 
 			$dataLog = [
 				'nome' => $this->dataAluno['displayname'],
@@ -148,7 +150,6 @@ class AtualizarAluno extends Command
 
 			$this->registerLogDb([$dataLog]);
 
-			$user->save();
 
 			return;
 		} catch (Exception  $ex) {
