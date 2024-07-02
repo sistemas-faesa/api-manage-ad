@@ -343,7 +343,18 @@ class SendTokenResetPasswordController extends Controller
 			$user->save();
 			$user->refresh();
 
-			$data = ['data' => 'Senha alterada com sucesso'];
+			$dataAtualizaLyceum = [
+				'password' => $request->password,
+				'cpf' => $request->cpf,
+				'samaccountname' => $user->samaccountname[0],
+			];
+
+			$msgAlteraLyceum = $this->atualizarDadosLyceum($dataAtualizaLyceum);
+
+			$data = [
+				'warning' => $msgAlteraLyceum,
+				'data' => 'Senha alterada com sucesso'
+			];
 
 			return $this->successMessage($data);
 		} catch (InsufficientAccessException $ex) {
