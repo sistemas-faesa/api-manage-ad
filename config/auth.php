@@ -49,7 +49,8 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'ldap',
-            'model' => LdapRecord\Models\ActiveDirectory\User::class,
+            //'model' => LdapRecord\Models\ActiveDirectory\User::class,
+            'model' => App\Models\User::class,
             'rules' => [],
             'scopes' => [],
         ],
