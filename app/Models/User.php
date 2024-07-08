@@ -63,6 +63,11 @@ class User extends LdapUser implements JWTSubject
      */
     public function getJWTCustomClaims()
     {
-        return [];
+		return [
+            'user' => [
+                'displayname' => $this->displayname[0],
+                'samaccountname' => $this->samaccountname[0],
+            ],
+        ];
     }
 }
