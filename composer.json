@@ -9,6 +9,7 @@
         "adldap2/adldap2": "^10.5",
         "adldap2/adldap2-laravel": "^6.1",
         "directorytree/ldaprecord-laravel": "^3.1",
+        "firebase/php-jwt": "^6.10",
         "guzzlehttp/guzzle": "^7.2",
         "laravel/framework": "^10.10",
         "laravel/sanctum": "^3.2",

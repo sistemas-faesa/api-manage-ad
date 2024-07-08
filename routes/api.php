@@ -22,30 +22,33 @@ use App\Http\Controllers\Auth\SendTokenResetPasswordController;
 |
 */
 
-Route::middleware(['access.security'])->prefix('v1')->group(function(){
-    Route::post('ad-manage/auth', [LoginRequest::class, 'authenticate']);
+	Route::middleware(['access.security'])->prefix('v1')->group(function(){
+		Route::post('ad-manage/auth', [LoginRequest::class, 'authenticate']);
+		Route::get('ad-manage/reset-password/get-user-by-cpf', [SendTokenResetPasswordController::class, 'getUserByCpf']);
+		Route::post('ad-manage/reset-password/validate-token', [SendTokenResetPasswordController::class, 'validateToken']);
+		Route::patch('ad-manage/change-password/', [SendTokenResetPasswordController::class, 'changePasswordPublic']);
+		Route::post('ad-manage/reset-password/send-token', [SendTokenResetPasswordController::class, 'sendToken']);
+	});
+	
+	Route::middleware(['auth:api'])->prefix('v1')->group(function(){
+		Route::patch('ad-manage/change-user/admin', [ActiveDirectoryController::class, 'changeUser']);
+		Route::post('ad-manage/create-user', [ActiveDirectoryController::class, 'validateSaveUser']);
+		
+		Route::get('ad-manage/get-user-by-cpf/admin', [SearchController::class, 'getUserByCpf']);
+		Route::get('ad-manage/search-user/admin', [SearchController::class, 'searchUser']);
+		Route::get('ad-manage/list-users', [SearchController::class, 'listAllUsers']);
+		Route::get('ad-manage/get-members-group', [GroupController::class, 'getMembersGroup']);
+		Route::get('ad-manage/get-groups', [GroupController::class, 'getGroups']);
+		
+		Route::patch('ad-manage/change-password/admin', [SendTokenResetPasswordController::class, 'changePasswordAdmin']);
+	
+		Route::get('ad-manage/log-users-ad', [LogUsersAdController::class, 'getAll']);
+		Route::get('ad-manage/password-resets-ad', [AdPasswordResetController::class, 'getAll']);
+		Route::get('ad-manage/me', [LoginRequest::class, "me"]);
+	});
 
-    Route::patch('ad-manage/change-user/admin', [ActiveDirectoryController::class, 'changeUser']);
-    Route::post('ad-manage/create-user', [ActiveDirectoryController::class, 'validateSaveUser']);
 
-    Route::get('ad-manage/get-user-by-cpf/admin', [SearchController::class, 'getUserByCpf']);
-    Route::get('ad-manage/search-user/admin', [SearchController::class, 'searchUser']);
-    Route::get('ad-manage/list-users', [SearchController::class, 'listAllUsers']);
-
-    Route::get('ad-manage/get-members-group', [GroupController::class, 'getMembersGroup']);
-    Route::get('ad-manage/get-groups', [GroupController::class, 'getGroups']);
-
-    Route::post('ad-manage/reset-password/validate-token', [SendTokenResetPasswordController::class, 'validateToken']);
-    Route::get('ad-manage/reset-password/get-user-by-cpf', [SendTokenResetPasswordController::class, 'getUserByCpf']);
-    Route::patch('ad-manage/change-password/admin', [SendTokenResetPasswordController::class, 'changePasswordAdmin']);
-    Route::patch('ad-manage/change-password/', [SendTokenResetPasswordController::class, 'changePasswordPublic']);
-    Route::post('ad-manage/reset-password/send-token', [SendTokenResetPasswordController::class, 'sendToken']);
-
-    Route::get('ad-manage/log-users-ad', [LogUsersAdController::class, 'getAll']);
-    Route::get('ad-manage/password-resets-ad', [AdPasswordResetController::class, 'getAll']);
-});
 // Route::prefix('v1')->middleware('jwt.auth')->group(function(){
-//     Route::get('ad-manage/me', [LoginRequest::class, "me"]);
 //     Route::get('ad-manage/refresh', [LoginRequest::class, "refresh"]);
 //     Route::get('ad-manage/logout', [LoginRequest::class, "logout"]);
 // });
