@@ -1,0 +1,12 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: php
+    tty: true
+    entrypoint: sh -c "composer install && php artisan serve --host=0.0.0.0"
+    volumes:
+      - ./:/usr/src/app
+    ports:
+      - 8000:8000
