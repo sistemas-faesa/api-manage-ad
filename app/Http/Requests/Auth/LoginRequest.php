@@ -74,8 +74,6 @@ class LoginRequest extends FormRequest
 
 			return response()->json([
 				'access_token' => $token,
-				'token_type' => 'Bearer',
-				'user_info' => auth('api')->user(),
 			], 200);
 
 			RateLimiter::clear($this->throttleKey());
