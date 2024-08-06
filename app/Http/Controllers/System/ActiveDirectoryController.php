@@ -88,10 +88,9 @@ class ActiveDirectoryController extends Controller
 			// 	return $msgError = "Formato serialNumber está incorreto";
 			// }
 
-			if($request->serialNumber && !is_numeric($request->serialNumber)){
+			if ($request->serialNumber && !is_numeric($request->serialNumber)) {
 				return $msgError = "SerialNumber deve ser numérico";
 			}
-
 		}
 
 		if (!$request->cn) {
@@ -135,12 +134,12 @@ class ActiveDirectoryController extends Controller
 			}
 		}
 
-		if($request->userType != 'funcionario')
+		if ($request->userType != 'funcionario')
 			if (!$request->pager) {
 				return $msgError = "Campo pager é obrigatório o preenchimento";
 			} elseif (!filter_var($request->pager, FILTER_VALIDATE_EMAIL)) {
 				return $msgError = "pager inválido";
-		}
+			}
 
 		if (!$request->title) {
 			return $msgError = "Campo title é obrigatório o preenchimento";
@@ -211,7 +210,6 @@ class ActiveDirectoryController extends Controller
 					$this->samaccountname = $firstName . '.' . substr($secondName, 0, 1) . strval($this->complementNumericSmaAccount);
 					// continue;
 				}
-
 			}
 			break;
 		}
@@ -355,21 +353,20 @@ class ActiveDirectoryController extends Controller
 			$cpfMasked = Helpers::formatCnpjCpf($request->description);
 			$cpf = trim(str_replace('-', '', str_replace('.', '', $request->description)));
 			$msgErro = '';
+			$senhaCrypt = Helpers::cryptSenha($this->password);
 
 			switch ($request->userType) {
 				case 'aluno':
 					$pessoa = LyPessoa::whereIn('CPF', [$cpf, $cpfMasked])->first();
 
-					if (!$pessoa) {
+					if ($pessoa) {
+						$pessoa->WINUSUARIO = 'FAESA\/' . $this->samaccountname;
+						$pessoa->SENHA_TAC = $senhaCrypt;
+						$pessoa->save();
+					} else {
 						$msgErro = "ERRO AO ATUALIZAR DADOS DO ALUNO NO LYCEUM, DADOS NÃO ENCONTRADO PARA O CPF: " . $request->description;
 						Log::warning($msgErro);
-						return $msgErro;
 					}
-
-					$pessoa->WINUSUARIO = 'FAESA\/' . $this->samaccountname;
-					$pessoa->SENHA_TAC = md5($this->password);
-
-					$pessoa->save();
 
 					break;
 
@@ -377,27 +374,23 @@ class ActiveDirectoryController extends Controller
 					$docente = LyDocente::whereIn('CPF', [$cpf, $cpfMasked])->first();
 					$pessoa = LyPessoa::whereIn('CPF', [$cpf, $cpfMasked])->first();
 
-					if (!$pessoa) {
-						$msgErro = "ERRO AO ATUALIZAR DADOS DO PROFESSOR NO LYCEUM, TABELA LY_PESSOA, DADOS NÃO ENCONTRADO PARA O CPF: " . $request->description;
+					if ($pessoa) {
+						$pessoa->WINUSUARIO = 'FAESA\\' . $this->samaccountname;
+						$pessoa->SENHA_TAC = $senhaCrypt;
+						$pessoa->save();
+					} else {
+						$msgErro += "ERRO AO ATUALIZAR DADOS DO PROFESSOR NO LYCEUM, TABELA LY_PESSOA, DADOS NÃO ENCONTRADO PARA O CPF: " . $request->description;
 						Log::warning($msgErro);
-						return $msgErro;
 					}
 
-					if (!$docente) {
-						$msgErro = "ERRO AO ATUALIZAR DADOS DO PROFESSOR NO LYCEUM, TABELA LY_DOCENTE, DADOS NÃO ENCONTRADO PARA O CPF: " . $request->description;
-						Log::warning($msgErro);
-						return $msgErro;
+					if ($docente) {
+						$docente->WINUSUARIO = 'FAESA\\' . $this->samaccountname;
+						$docente->SENHA_DOL = $senhaCrypt;
+						$docente->save();
 					}
 
-					$pessoa->WINUSUARIO = 'FAESA\\' . $this->samaccountname;
-					$pessoa->SENHA_TAC = Helpers::cryptSenha($this->password);
-
-					$docente->WINUSUARIO = 'FAESA\\' . $this->samaccountname;
-					$docente->SENHA_DOL = Helpers::cryptSenha($this->password);
-
-					$pessoa->save();
-
-					$docente->save();
+					$msgErro += " ERRO AO ATUALIZAR DADOS DO PROFESSOR NO LYCEUM, TABELA LY_DOCENTE, DADOS NÃO ENCONTRADO PARA O CPF: " . $request->description;
+					Log::warning($msgErro);
 
 					break;
 			}
@@ -457,12 +450,11 @@ class ActiveDirectoryController extends Controller
 		$user->userAccountControl = $request->userAccountControl ? 512 : 512 + 2;
 		$user->accountexpires = $accountexpires;
 
-        if ($request->manager) {
-            $user->manager = $request->manager;
-        }
-        else{
-            $user->manager = null;
-        }
+		if ($request->manager) {
+			$user->manager = $request->manager;
+		} else {
+			$user->manager = null;
+		}
 
 		try {
 			$user->save();

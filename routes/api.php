@@ -21,8 +21,8 @@ use App\Http\Controllers\Auth\SendTokenResetPasswordController;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
-
-	Route::middleware(['access.security'])->prefix('v1')->group(function(){
+	// middleware(['access.security'])->
+	Route::prefix('v1')->group(function(){
 		Route::post('ad-manage/auth', [LoginRequest::class, 'authenticate']);
 		Route::get('ad-manage/reset-password/get-user-by-cpf', [SendTokenResetPasswordController::class, 'getUserByCpf']);
 		Route::post('ad-manage/reset-password/validate-token', [SendTokenResetPasswordController::class, 'validateToken']);
