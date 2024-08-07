@@ -69,11 +69,19 @@ class Helpers
 	public static function cryptSenha($senha)
 	{
 		try {
-			$senha = DB::connection('sqlsrv_lyceum')->select("select dbo.crypt('$senha') senha");
+			$senhaUtf = mb_convert_encoding($senha, 'UTF-8', 'UTF-8');
 			
-			return $senha[0]->senha;
+			Log::warning("Senha sem cript: " . $senhaUtf);
+
+			$query = "SELECT dbo.Crypt(?) AS senha";
+        	$senhaCriptografada = DB::connection('sqlsrv_lyceum')->select($query, [$senhaUtf]);
+
+			Log::warning("Senha com cript: " . $senhaCriptografada[0]->senha);
+
+			return $senhaCriptografada[0]->senha;
+			
 		} catch (Exception $e) {
-			Log::warning("ERRO AO CRIPTOGRAFAR SENHA: " . $e->getMessage());
+			Log::warning("ERRO AO CRIPTOGRAFAR SENHA: " . $e);
 		}
 	}
 
