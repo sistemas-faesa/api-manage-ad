@@ -68,16 +68,12 @@ class Helpers
 
 	public static function cryptSenha($senha)
 	{
-		try {
-			$senhaUtf = mb_convert_encoding($senha, 'UTF-8', 'UTF-8');
-			
-			Log::warning("Senha sem cript: " . $senhaUtf);
+		try {			
+			$senhaUtf = urlencode($senha);
 
 			$query = "SELECT dbo.Crypt(?) AS senha";
-        	$senhaCriptografada = DB::connection('sqlsrv_lyceum')->select($query, [$senhaUtf]);
-
-			Log::warning("Senha com cript: " . $senhaCriptografada[0]->senha);
-
+        	$senhaCriptografada = DB::select($query, [$senhaUtf]);
+			        	
 			return $senhaCriptografada[0]->senha;
 			
 		} catch (Exception $e) {
