@@ -286,24 +286,23 @@ class SendTokenResetPasswordController extends Controller
 
 			$user->save();
 			$user->refresh();
-			
+
 			$dataAtualizaLyceum = [
 				'password' => $request->password,
 				'cpf' => $userToken->cpf,
 				'samaccountname' => $user->samaccountname[0],
 			];
-			
+
 			$msgAlteraLyceum = $this->atualizarDadosLyceum($dataAtualizaLyceum);
-			
+
 			$this->changeStatusToken($request->token);
-			
+
 			$data = [
 				'warning' => $msgAlteraLyceum,
 				'data' => 'Senha alterada com sucesso'
-			];			
+			];
 
 			return $this->successMessage($data);
-
 		} catch (InsufficientAccessException $ex) {
 			Log::warning("ERRO ALTERAR SENHA: $ex");
 		} catch (ConstraintViolationException $ex) {
@@ -392,13 +391,17 @@ class SendTokenResetPasswordController extends Controller
 
 			$docente = LyDocente::whereIn('CPF', [$cpf, $cpfMasked])->first();
 			$pessoa = LyPessoa::whereIn('CPF', [$cpf, $cpfMasked])->first();
-			
+
 			$senhaCrypt = Helpers::cryptSenha($data['password']);
+
+			$senha = mb_convert_encoding($data['password'], 'UTF-8', 'auto');
 			
 			if ($pessoa) {
 				$pessoa->WINUSUARIO = 'FAESA\\' . $data['samaccountname'];
-				$pessoa->SENHA_TAC = $senhaCrypt;
+				$pessoa->SENHA_TAC = $senha;
 				$pessoa->save();
+				
+				Helpers::cryptSenhaBySql($pessoa->CPF, 'pessoa');
 			} else {
 				$msgErro = "ERRO AO ATUALIZAR DADOS DO PROFESSOR NO LYCEUM, TABELA LY_PESSOA, DADOS NÃO ENCONTRADO PARA O CPF: " . $cpf;
 				Log::warning($msgErro);
@@ -406,8 +409,10 @@ class SendTokenResetPasswordController extends Controller
 
 			if ($docente) {
 				$docente->WINUSUARIO = 'FAESA\\' . $data['samaccountname'];
-				$docente->SENHA_DOL = $senhaCrypt;
+				$docente->SENHA_DOL = $senha;
 				$docente->save();
+
+				Helpers::cryptSenhaBySql($docente->CPF, 'docente');
 			} else {
 				$msgErro = "ERRO AO ATUALIZAR DADOS DO PROFESSOR NO LYCEUM, TABELA LY_DOCENTE, DADOS NÃO ENCONTRADO PARA O CPF: " . $cpf;
 				Log::warning($msgErro);

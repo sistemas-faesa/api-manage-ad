@@ -16,14 +16,112 @@ class Helpers
 		return strtolower(
 			str_replace(
 				array(
-					'', 'à', 'á', 'â', 'ã', 'ä', 'ç', 'è', 'é', 'ê', 'ë', 'ì', 'í', 'î', 'ï',
-					'ñ', 'ò', 'ó', 'ô', 'õ', 'ö', 'ù', 'ú', 'û', 'ü', 'ý', 'ÿ', 'À', 'Á', 'Â', 'Ã', 'Ä',
-					'Ç', 'È', 'É', 'Ê', 'Ë', 'Ì', 'Í', 'Î', 'Ï', 'Ñ', 'Ò', 'Ó', 'Ô', 'Õ', 'Ö', 'Ù', 'Ú', 'Û', 'Ü', 'Ý'
+					'',
+					'à',
+					'á',
+					'â',
+					'ã',
+					'ä',
+					'ç',
+					'è',
+					'é',
+					'ê',
+					'ë',
+					'ì',
+					'í',
+					'î',
+					'ï',
+					'ñ',
+					'ò',
+					'ó',
+					'ô',
+					'õ',
+					'ö',
+					'ù',
+					'ú',
+					'û',
+					'ü',
+					'ý',
+					'ÿ',
+					'À',
+					'Á',
+					'Â',
+					'Ã',
+					'Ä',
+					'Ç',
+					'È',
+					'É',
+					'Ê',
+					'Ë',
+					'Ì',
+					'Í',
+					'Î',
+					'Ï',
+					'Ñ',
+					'Ò',
+					'Ó',
+					'Ô',
+					'Õ',
+					'Ö',
+					'Ù',
+					'Ú',
+					'Û',
+					'Ü',
+					'Ý'
 				),
 				array(
-					'_', 'a', 'a', 'a', 'a', 'a', 'c', 'e', 'e', 'e', 'e', 'i', 'i', 'i', 'i', 'n', 'o', 'o', 'o',
-					'o', 'o', 'u', 'u', 'u', 'u', 'y', 'y', 'A', 'A', 'A', 'A', 'A', 'C', 'E', 'E', 'E', 'E', 'I', 'I', 'I',
-					'I', 'N', 'O', 'O', 'O', 'O', 'O', 'U', 'U', 'U', 'U', 'Y'
+					'_',
+					'a',
+					'a',
+					'a',
+					'a',
+					'a',
+					'c',
+					'e',
+					'e',
+					'e',
+					'e',
+					'i',
+					'i',
+					'i',
+					'i',
+					'n',
+					'o',
+					'o',
+					'o',
+					'o',
+					'o',
+					'u',
+					'u',
+					'u',
+					'u',
+					'y',
+					'y',
+					'A',
+					'A',
+					'A',
+					'A',
+					'A',
+					'C',
+					'E',
+					'E',
+					'E',
+					'E',
+					'I',
+					'I',
+					'I',
+					'I',
+					'N',
+					'O',
+					'O',
+					'O',
+					'O',
+					'O',
+					'U',
+					'U',
+					'U',
+					'U',
+					'Y'
 				),
 				$name
 			)
@@ -68,14 +166,33 @@ class Helpers
 
 	public static function cryptSenha($senha)
 	{
-		try {			
-			$senhaUtf = urlencode($senha);
+		try {
+			$senhaUtf = mb_convert_encoding($senha, 'UTF-8', 'auto');
 
-			$query = "SELECT dbo.Crypt(?) AS senha";
-        	$senhaCriptografada = DB::select($query, [$senhaUtf]);
-			        	
+			$query = "SELECT dbo.crypt(?) AS senha";
+			$senhaCriptografada = DB::select($query, [$senhaUtf]);
+
 			return $senhaCriptografada[0]->senha;
-			
+		} catch (Exception $e) {
+			Log::warning("ERRO AO CRIPTOGRAFAR SENHA: " . $e);
+		}
+	}
+
+	public static function cryptSenhaBySql($cpf, $tipoPessoa)
+	{
+		try {
+			// $senhaUtf = mb_convert_encoding($senha, 'UTF-8', 'auto');
+			if ($tipoPessoa == 'pessoa') {
+				$query = "UPDATE LY_PESSOA SET SENHA_TAC =  dbo.crypt(SENHA_TAC) where cpf = ?";
+				DB::connection('sqlsrv_lyceum')->select($query, [$cpf]);
+				return;
+			}
+
+			if ($tipoPessoa == 'docente') {
+				$query = "UPDATE LY_DOCENTE SET SENHA_DOL =  dbo.crypt(SENHA_DOL) where cpf = ?";
+				DB::connection('sqlsrv_lyceum')->select($query, [$cpf]);
+				return;
+			}
 		} catch (Exception $e) {
 			Log::warning("ERRO AO CRIPTOGRAFAR SENHA: " . $e);
 		}
